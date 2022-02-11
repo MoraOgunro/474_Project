@@ -1,6 +1,5 @@
 import SetTheoryDSL.SetExp.*
 
-import javax.swing.plaf.basic.BasicMenuBarUI
 import scala.collection.mutable
 import scala.collection.mutable.{Map, Set}
 //todo: 4 access modifiers
@@ -12,7 +11,7 @@ object SetTheoryDSL:
   type BasicType = Any
   /** variableBinding is the default scope. */
   val variableBinding: mutable.Map[String, Any] = mutable.Map[String,Any]()
-  /** scopeMap is a collection of variable scopes*/
+  /** scopeMap is a collection of variable scopes */
   val scopeMap: mutable.Map[String, Any] = mutable.Map[String,Any]("default" -> variableBinding)
   /** the scope that is currently active */
   val currentScopeName: Array[String] = Array("default")
@@ -292,11 +291,31 @@ object SetTheoryDSL:
           }
 
         case ClassDef(name, field, constructor) =>{
-          val variableInfo = name.eval.asInstanceOf[(String, BasicType)]
-          val className = variableInfo._1
+          val className = name.eval.asInstanceOf[String]
+
+          if(constructor != NoneCase){
+            scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](className) = mutable.Map();
+          }
 
         }
-
+        case Field() =>{
+          1
+        }
+        case Constructor() =>{
+          1
+        }
+        case Method() =>{
+          1
+        }
+        case Extends() =>{
+          1
+        }
+        case NewObject() =>{
+          1
+        }
+        case InvokeMethod() =>{
+          1
+        }
         /** NoneCase case used by various expressions
          *
          *  return None
@@ -310,6 +329,7 @@ object SetTheoryDSL:
   println("***Welcome to my Set Theory DSL!***")
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
+  Scope("default", ClassDef(Value("myClass"), constructor = Constructor() )).eval
 
 
 

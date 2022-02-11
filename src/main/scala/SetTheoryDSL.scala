@@ -3,7 +3,10 @@ import SetTheoryDSL.SetExp.*
 import javax.swing.plaf.basic.BasicMenuBarUI
 import scala.collection.mutable
 import scala.collection.mutable.{Map, Set}
-
+//todo: 4 access modifiers
+//todo: tests
+//todo: report
+//todo: documentation must specify how you create and evaluate expressions with class inheritance in your language
 /** SetTheoryDSL provides a set theory language for the user to perform actions on sets */
 object SetTheoryDSL:
   type BasicType = Any
@@ -30,6 +33,20 @@ object SetTheoryDSL:
     case Macro(name: String, input: SetExp = NoneCase())
     case Delete(name: SetExp, input: SetExp)
     case NoneCase()
+    //Todo: 1 implement
+    case ClassDef(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())
+    case Constructor()
+    //Todo: 2 implement
+    case Field()
+    //Todo: 3 implement
+    case Method()
+    //Todo: 5 implement
+    case Extends()
+    //Todo: 6 implement
+    case NewObject()
+    //Todo: 7 implement
+    case InvokeMethod()
+
     def eval: BasicType =
     this match {
         /** Returns the value that was passed into it
@@ -274,6 +291,12 @@ object SetTheoryDSL:
             macroBindings(name).eval
           }
 
+        case ClassDef(name, field, constructor) =>{
+          val variableInfo = name.eval.asInstanceOf[(String, BasicType)]
+          val className = variableInfo._1
+
+        }
+
         /** NoneCase case used by various expressions
          *
          *  return None
@@ -287,6 +310,7 @@ object SetTheoryDSL:
   println("***Welcome to my Set Theory DSL!***")
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
+
 
 
 

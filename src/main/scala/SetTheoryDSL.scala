@@ -17,6 +17,7 @@ object SetTheoryDSL:
   val currentScopeName: Array[String] = Array("default")
   /** a map of user-defined macro commands */
   val macroBindings: mutable.Map[String, SetExp] = mutable.Map[String, SetExp]()
+  val isClass: Array[Any] = Array(false,"")
 
   enum SetExp:
     case Value(input: BasicType)
@@ -34,9 +35,9 @@ object SetTheoryDSL:
     case NoneCase()
     //Todo: 1 implement
     case ClassDef(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())
-    case Constructor()
+    case Constructor(exp: SetExp)
     //Todo: 2 implement
-    case Field()
+    case Field(name: SetExp)
     //Todo: 3 implement
     case Method()
     //Todo: 5 implement
@@ -127,12 +128,18 @@ object SetTheoryDSL:
               "Refer to the syntax documentation for an example.")
             throw new IllegalArgumentException
           }
-          val scope = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]]
+
+
+          val scope = if(isClass(0).asInstanceOf[Boolean]){
+           scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](isClass(1).asInstanceOf[String]).asInstanceOf[mutable.Map[String,Any]]("public").asInstanceOf[mutable.Map[String,Any]]
+          }else{
+            scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]]
+          }
           /** variable info contains the tuple evaluation of the name variable */
           val variableInfo = name.eval.asInstanceOf[(String, BasicType)]
 
           /** create the set if it does not exist with the current scope */
-          if(scope.contains(variableInfo._1)){
+          if(scope.contains(variableInfo._1) && classOf[mutable.HashSet[BasicType]].isInstance(scope(variableInfo._1)) ){
             println(s"Found Set with key ${variableInfo._1}")
           }else{
             scope(variableInfo._1) = mutable.Set[BasicType]()
@@ -151,6 +158,8 @@ object SetTheoryDSL:
             scope(variableInfo._1).asInstanceOf[mutable.Set[BasicType]]  += result
           }
           println(s"Object inserted. The set now contains: ${scope(variableInfo._1).asInstanceOf[mutable.Set[BasicType]]}")
+
+
 
         /** Deletes an object from a set
          *
@@ -290,19 +299,27 @@ object SetTheoryDSL:
             macroBindings(name).eval
           }
 
+        /***/
         case ClassDef(name, field, constructor) =>{
           val className = name.eval.asInstanceOf[String]
 
           if(constructor != NoneCase){
-            scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](className) = mutable.Map();
-          }
+            val newClass = mutable.Map[String, mutable.Map[String, Any]]()
+            newClass("public") = mutable.Map[String,Any]()
+            newClass("private") = mutable.Map[String,Any]()
+            if(field != NoneCase){
+              newClass("public").put(field.eval.asInstanceOf[String], None)
+            }
 
+            scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](className) = newClass;
+            constructor_helper(constructor.asInstanceOf[Constructor],className)
+          }
         }
-        case Field() =>{
-          1
+        case Field(name) =>{
+          return name.eval
         }
-        case Constructor() =>{
-          1
+        case Constructor(exp) =>{
+          exp
         }
         case Method() =>{
           1
@@ -323,13 +340,23 @@ object SetTheoryDSL:
         case NoneCase() =>
           None
 
+
+    }
+    def constructor_helper(constructor: Constructor, className: String): Any ={
+      isClass(0) = true;
+      isClass(1) = className;
+      val curClass: mutable.Map[String,mutable.Map[String,Any]] = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](className).asInstanceOf[mutable.Map[String,mutable.Map[String,Any]]]
+      val expressions = constructor.eval.asInstanceOf[SetExp]
+      expressions.eval
+      isClass(0) = false
+      isClass(1) = ""
     }
 
 @main def runSetExp(): Unit =
   println("***Welcome to my Set Theory DSL!***")
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
-  Scope("default", ClassDef(Value("myClass"), constructor = Constructor() )).eval
+  Scope("default", ClassDef(Value("myClass"), field = Field(Value("f")), constructor = Constructor(  Assign(Variable(Value("f")), Value(2)) ) )).eval
 
 
 

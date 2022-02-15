@@ -4,7 +4,6 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
 import scala.collection.mutable.{Map, Set}
 //todo: 4 access modifiers
-//todo: constructor with multiple input
 //todo: tests
 //todo: report
 //todo: documentation must specify how you create and evaluate expressions with class inheritance in your language
@@ -34,9 +33,9 @@ object SetTheoryDSL:
     case Macro(name: String, input: SetExp = NoneCase())
     case Delete(name: SetExp, input: SetExp)
     case NoneCase()
-    case ClassDef(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())
+    case ClassDef(name: SetExp, field: SetExp = NoneCase(),  constructor: SetExp = NoneCase())
     case Constructor(exp: SetExp*)
-    case Field(name: SetExp)
+    case Field(name: SetExp*)
     case Method(name: String, exp: SetExp)
     //Todo: 5 implement
     case Extends()
@@ -296,7 +295,7 @@ object SetTheoryDSL:
           }
 
         /***/
-        case ClassDef(name, field, constructor) =>{
+        case ClassDef(name, field, constructor) =>
           val className = name.eval.asInstanceOf[String]
 
           if(constructor != NoneCase){
@@ -305,32 +304,29 @@ object SetTheoryDSL:
             newClass("private") = mutable.Map[String,Any]()
             newClass("protected") = mutable.Map[String,Any]()
             if(field != NoneCase){
-              newClass("public").put(field.eval.asInstanceOf[String], None)
+
+              val fields: ArraySeq[SetExp] = field.eval.asInstanceOf[ArraySeq[SetExp]]
+              fields.foreach( f => newClass("public").put(f.eval.asInstanceOf[String], None))
+
             }
 
             scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](className) = newClass;
             constructor_helper(className, constructor.asInstanceOf[Constructor])
           }
-        }
-        case Field(name) =>{
-          return name.eval
-        }
-        case Constructor(exp*) =>{
+        case Field(name*) =>
+          name
+        case Constructor(exp*) =>
           exp
-        }
-        case Method(name, exp) =>{
+        case Method(name, exp) =>
           val scope = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](isClass(1).asInstanceOf[String]).asInstanceOf[mutable.Map[String,Any]]("public").asInstanceOf[mutable.Map[String,Any]]
           scope.put(name, exp);
-        }
-        case Extends() =>{
+        case Extends() =>
           1
-        }
-        case NewObject() =>{
+        case NewObject() =>
           1
-        }
-        case InvokeMethod() =>{
+        case InvokeMethod() =>
           1
-        }
+
         /** NoneCase case used by various expressions
          *
          *  return None
@@ -339,8 +335,8 @@ object SetTheoryDSL:
           None
     }
     def constructor_helper(className: String, constructor: Constructor ): Any ={
-      isClass(0) = true;
-      isClass(1) = className;
+      isClass(0) = true
+      isClass(1) = className
       val curClass: mutable.Map[String,mutable.Map[String,Any]] = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](className).asInstanceOf[mutable.Map[String,mutable.Map[String,Any]]]
       val expressions: ArraySeq[SetExp] = constructor.eval.asInstanceOf[ArraySeq[SetExp]]
       expressions.foreach( ex => ex.eval)
@@ -353,7 +349,7 @@ object SetTheoryDSL:
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
   //Scope("default", ClassDef(Value("myClass"), field = Field(Value("f")), constructor = Constructor(  Assign(Variable(Value("f")), Value(2)) ) )).eval
-  Scope("default", ClassDef(Value("myClass"), field = Field(Value("f")), constructor = Constructor( Method("initialMethod", Assign(Variable(Value("f")), Value(2)) ), Assign(Variable(Value("a")), Value(99))  ))).eval
+  Scope("default", ClassDef(Value("myClass"), field = Field(Value("f"), Value("a"), Value("b")), constructor = Constructor( Method("initialMethod", Assign(Variable(Value("f")), Value(2)) ), Assign(Variable(Value("a")), Value(99))  ))).eval
 
 
 

@@ -1,12 +1,15 @@
 import SetTheoryDSL.SetExp.*
 
+import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
 import scala.collection.mutable.{Map, Set}
 //todo: 4 access modifiers
+//todo: constructor with multiple input
 //todo: tests
 //todo: report
 //todo: documentation must specify how you create and evaluate expressions with class inheritance in your language
 /** SetTheoryDSL provides a set theory language for the user to perform actions on sets */
+val isClass: Array[Any] = Array(false,"")
 object SetTheoryDSL:
   type BasicType = Any
   /** variableBinding is the default scope. */
@@ -17,8 +20,6 @@ object SetTheoryDSL:
   val currentScopeName: Array[String] = Array("default")
   /** a map of user-defined macro commands */
   val macroBindings: mutable.Map[String, SetExp] = mutable.Map[String, SetExp]()
-  val isClass: Array[Any] = Array(false,"")
-
   enum SetExp:
     case Value(input: BasicType)
     case Variable(name: SetExp)
@@ -34,7 +35,7 @@ object SetTheoryDSL:
     case Delete(name: SetExp, input: SetExp)
     case NoneCase()
     case ClassDef(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())
-    case Constructor(exp: SetExp)
+    case Constructor(exp: SetExp*)
     case Field(name: SetExp)
     case Method(name: String, exp: SetExp)
     //Todo: 5 implement
@@ -274,6 +275,7 @@ object SetTheoryDSL:
           }catch {
             case e: _ =>
               println("\nError. Please check your syntax.\n")
+              println(e)
           }
 
         /** Creates a macro binding with a given name and expression
@@ -301,18 +303,19 @@ object SetTheoryDSL:
             val newClass = mutable.Map[String, mutable.Map[String, Any]]()
             newClass("public") = mutable.Map[String,Any]()
             newClass("private") = mutable.Map[String,Any]()
+            newClass("protected") = mutable.Map[String,Any]()
             if(field != NoneCase){
               newClass("public").put(field.eval.asInstanceOf[String], None)
             }
 
             scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](className) = newClass;
-            constructor_helper(constructor.asInstanceOf[Constructor],className)
+            constructor_helper(className, constructor.asInstanceOf[Constructor])
           }
         }
         case Field(name) =>{
           return name.eval
         }
-        case Constructor(exp) =>{
+        case Constructor(exp*) =>{
           exp
         }
         case Method(name, exp) =>{
@@ -335,12 +338,12 @@ object SetTheoryDSL:
         case NoneCase() =>
           None
     }
-    def constructor_helper(constructor: Constructor, className: String): Any ={
+    def constructor_helper(className: String, constructor: Constructor ): Any ={
       isClass(0) = true;
       isClass(1) = className;
       val curClass: mutable.Map[String,mutable.Map[String,Any]] = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](className).asInstanceOf[mutable.Map[String,mutable.Map[String,Any]]]
-      val expressions = constructor.eval.asInstanceOf[SetExp]
-      expressions.eval
+      val expressions: ArraySeq[SetExp] = constructor.eval.asInstanceOf[ArraySeq[SetExp]]
+      expressions.foreach( ex => ex.eval)
       isClass(0) = false
       isClass(1) = ""
     }
@@ -350,7 +353,7 @@ object SetTheoryDSL:
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
   //Scope("default", ClassDef(Value("myClass"), field = Field(Value("f")), constructor = Constructor(  Assign(Variable(Value("f")), Value(2)) ) )).eval
-  Scope("default", ClassDef(Value("myClass"), field = Field(Value("f")), constructor = Constructor( Method("initialMethod", Assign(Variable(Value("f")), Value(2)) ) ))).eval
+  Scope("default", ClassDef(Value("myClass"), field = Field(Value("f")), constructor = Constructor( Method("initialMethod", Assign(Variable(Value("f")), Value(2)) ), Assign(Variable(Value("a")), Value(99))  ))).eval
 
 
 

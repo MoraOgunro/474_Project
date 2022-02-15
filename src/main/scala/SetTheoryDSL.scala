@@ -33,13 +33,10 @@ object SetTheoryDSL:
     case Macro(name: String, input: SetExp = NoneCase())
     case Delete(name: SetExp, input: SetExp)
     case NoneCase()
-    //Todo: 1 implement
     case ClassDef(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())
     case Constructor(exp: SetExp)
-    //Todo: 2 implement
     case Field(name: SetExp)
-    //Todo: 3 implement
-    case Method()
+    case Method(name: String, exp: SetExp)
     //Todo: 5 implement
     case Extends()
     //Todo: 6 implement
@@ -129,9 +126,8 @@ object SetTheoryDSL:
             throw new IllegalArgumentException
           }
 
-
           val scope = if(isClass(0).asInstanceOf[Boolean]){
-           scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](isClass(1).asInstanceOf[String]).asInstanceOf[mutable.Map[String,Any]]("public").asInstanceOf[mutable.Map[String,Any]]
+            scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](isClass(1).asInstanceOf[String]).asInstanceOf[mutable.Map[String,Any]]("public").asInstanceOf[mutable.Map[String,Any]]
           }else{
             scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]]
           }
@@ -158,8 +154,6 @@ object SetTheoryDSL:
             scope(variableInfo._1).asInstanceOf[mutable.Set[BasicType]]  += result
           }
           println(s"Object inserted. The set now contains: ${scope(variableInfo._1).asInstanceOf[mutable.Set[BasicType]]}")
-
-
 
         /** Deletes an object from a set
          *
@@ -321,8 +315,9 @@ object SetTheoryDSL:
         case Constructor(exp) =>{
           exp
         }
-        case Method() =>{
-          1
+        case Method(name, exp) =>{
+          val scope = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](isClass(1).asInstanceOf[String]).asInstanceOf[mutable.Map[String,Any]]("public").asInstanceOf[mutable.Map[String,Any]]
+          scope.put(name, exp);
         }
         case Extends() =>{
           1
@@ -339,8 +334,6 @@ object SetTheoryDSL:
          */
         case NoneCase() =>
           None
-
-
     }
     def constructor_helper(constructor: Constructor, className: String): Any ={
       isClass(0) = true;
@@ -356,7 +349,8 @@ object SetTheoryDSL:
   println("***Welcome to my Set Theory DSL!***")
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
-  Scope("default", ClassDef(Value("myClass"), field = Field(Value("f")), constructor = Constructor(  Assign(Variable(Value("f")), Value(2)) ) )).eval
+  //Scope("default", ClassDef(Value("myClass"), field = Field(Value("f")), constructor = Constructor(  Assign(Variable(Value("f")), Value(2)) ) )).eval
+  Scope("default", ClassDef(Value("myClass"), field = Field(Value("f")), constructor = Constructor( Method("initialMethod", Assign(Variable(Value("f")), Value(2)) ) ))).eval
 
 
 

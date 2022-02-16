@@ -39,8 +39,7 @@ object SetTheoryDSL:
     case Method(name: String, exp: SetExp)
     //Todo: 5 implement
     case Extends()
-    //Todo: 6 implement
-    case NewObject()
+    case NewObject(name: SetExp, varName: Variable)
     //Todo: 7 implement
     case InvokeMethod()
 
@@ -299,19 +298,17 @@ object SetTheoryDSL:
           val className = name.eval.asInstanceOf[String]
 
           if(constructor != NoneCase){
-            val newClass = mutable.Map[String, mutable.Map[String, Any]]()
+            val newClass = mutable.Map[String, Any]("constructor" -> constructor)
             newClass("public") = mutable.Map[String,Any]()
             newClass("private") = mutable.Map[String,Any]()
             newClass("protected") = mutable.Map[String,Any]()
             if(field != NoneCase){
 
               val fields: ArraySeq[SetExp] = field.eval.asInstanceOf[ArraySeq[SetExp]]
-              fields.foreach( f => newClass("public").put(f.eval.asInstanceOf[String], None))
+              fields.foreach( f => newClass("public").asInstanceOf[mutable.Map[String,Any]].put(f.eval.asInstanceOf[String], None))
 
             }
-
-            scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](className) = newClass;
-            constructor_helper(className, constructor.asInstanceOf[Constructor])
+            scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](className) = newClass
           }
         case Field(name*) =>
           name
@@ -322,8 +319,11 @@ object SetTheoryDSL:
           scope.put(name, exp);
         case Extends() =>
           1
-        case NewObject() =>
-          1
+        case NewObject(classDefName, varName) =>
+          val className = classDefName.eval.asInstanceOf[String]
+          val constructor = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](className).asInstanceOf[mutable.Map[String,Any]]("constructor")
+          val objectName = varName.eval.asInstanceOf[(String,Any)]._1
+          constructor_helper(className, objectName, constructor.asInstanceOf[Constructor])
         case InvokeMethod() =>
           1
 
@@ -334,10 +334,12 @@ object SetTheoryDSL:
         case NoneCase() =>
           None
     }
-    def constructor_helper(className: String, constructor: Constructor ): Any ={
+    def constructor_helper(className: String, varName: String, constructor: Constructor ): Any ={
       isClass(0) = true
       isClass(1) = className
-      val curClass: mutable.Map[String,mutable.Map[String,Any]] = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](className).asInstanceOf[mutable.Map[String,mutable.Map[String,Any]]]
+      //make copy of og class under new var name
+      val newObject = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]](className).asInstanceOf[mutable.Map[String,Any]].clone()
+      scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String,Any]].put(varName,newObject)
       val expressions: ArraySeq[SetExp] = constructor.eval.asInstanceOf[ArraySeq[SetExp]]
       expressions.foreach( ex => ex.eval)
       isClass(0) = false
@@ -350,6 +352,7 @@ object SetTheoryDSL:
   // Place your expressions here. View README.md for syntax documentation
   //Scope("default", ClassDef(Value("myClass"), field = Field(Value("f")), constructor = Constructor(  Assign(Variable(Value("f")), Value(2)) ) )).eval
   Scope("default", ClassDef(Value("myClass"), field = Field(Value("f"), Value("a"), Value("b")), constructor = Constructor( Method("initialMethod", Assign(Variable(Value("f")), Value(2)) ), Assign(Variable(Value("a")), Value(99))  ))).eval
+  Scope("default", NewObject(Value("myClass"), Variable(Value("createdClass")))).eval
 
 
 

@@ -318,16 +318,12 @@ object SetTheoryDSL:
           val className = name.eval.asInstanceOf[String]
 
           if (constructor != NoneCase) {
-            val newClass = mutable.Map[String, Any](
-              "constructor" -> constructor,
-              "public" ->  mutable.Map[String, Any](),
-              "private" -> mutable.Map[String, Any](),
-              "protected" -> mutable.Map[String, Any]() )
+            val newClass = mutable.Map[String, Any]("constructor" -> constructor )
 
             if (field != NoneCase) {
 
               val fields: ArraySeq[SetExp] = field.eval.asInstanceOf[ArraySeq[SetExp]]
-              fields.foreach(f => newClass("public").asInstanceOf[mutable.Map[String, Any]].put(f.eval.asInstanceOf[String], None))
+              newClass.put("fields", fields)
 
             }
             scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](className) = newClass
@@ -379,8 +375,8 @@ object SetTheoryDSL:
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
   //Scope("default", ClassDef(Value("myClass"), field = Field(Value("f")), constructor = Constructor(  Assign(Variable(Value("f")), Value(2)) ) )).eval
-  Scope("default", ClassDef(Value("myClass"), field = Field(Value("f"), Value("a"), Value("b")), constructor = Constructor(Method("initialMethod", Assign(Variable(Value("f")), Value(2)), "private"), Assign(Variable(Value("a")), Value(99))))).eval
-  Scope("default", NewObject(Value("myClass"), Variable(Value("newObject")))).eval
+  Scope("default", ClassDef(Value("myClass"), field = Field(Value(("f","private")),Value(("a","private")),Value(("b","private"))), constructor = Constructor(Method("initialMethod", Assign(Variable(Value("f")), Value(2)), "private"), Assign(Variable(Value("a")), Value(99))))).eval
+  //Scope("default", NewObject(Value("myClass"), Variable(Value("newObject")))).eval
 
 
 

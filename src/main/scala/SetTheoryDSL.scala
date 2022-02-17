@@ -3,13 +3,13 @@ import SetTheoryDSL.SetExp.*
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
 import scala.collection.mutable.{Map, Set}
-//todo: separate classDef and deep copy
-//todo: 4 access modifiers
+//todo: separate classDef
 //todo: tests
 //todo: report
 //todo: documentation must specify how you create and evaluate expressions with class inheritance in your language
+
 /** SetTheoryDSL provides a set theory language for the user to perform actions on sets */
-val isClass: Array[Any] = Array(false, "")
+
 
 object SetTheoryDSL:
   type BasicType = Any
@@ -22,12 +22,13 @@ object SetTheoryDSL:
   /** a map of user-defined macro commands */
   val macroBindings: mutable.Map[String, SetExp] = mutable.Map[String, SetExp]()
   val classDefinitions: mutable.Map[String, Any] = mutable.Map[String, Any]()
+  val isClass: Array[Any] = Array(false, "")
 
   enum SetExp:
     case Value(input: BasicType)
     case Variable(name: SetExp)
     case Check(name: SetExp, input: SetExp)
-    case Assign(name: SetExp, input: SetExp)
+    case Assign(name: SetExp, input: SetExp, access: String = "public")
     case Union(set1: SetExp, set2: SetExp)
     case Intersection(set1: SetExp, set2: SetExp)
     case SetDifference(set1: SetExp, set2: SetExp)
@@ -45,7 +46,7 @@ object SetTheoryDSL:
     case Extends()
     case NewObject(name: SetExp, varName: Variable)
     //Todo: 7 implement
-    case InvokeMethod()
+    case InvokeMethod(className: String, methodName:String, access:String)
 
     def eval: BasicType =
       this match {
@@ -76,7 +77,10 @@ object SetTheoryDSL:
              * The variable n does not exist. Return a tuple containing the variable name and None
              */
             case e: NoSuchElementException =>
-              println(s"No variable $n exists within scope ${currentScopeName(0)}")
+
+              if (!isClass(0).asInstanceOf[Boolean]) {
+                println(s"No variable $n exists within scope ${currentScopeName(0)}")
+              }
               (n, None)
           }
 
@@ -122,7 +126,7 @@ object SetTheoryDSL:
          * param input the object to be inserted
          * return nothing.
          */
-        case Assign(name, input) =>
+        case Assign(name, input, access) =>
 
           /** the user must call Assign on a variable, not a string */
           if (!name.isInstanceOf[Variable]) {
@@ -133,7 +137,12 @@ object SetTheoryDSL:
           }
 
           val scope = if (isClass(0).asInstanceOf[Boolean]) {
-            scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](isClass(1).asInstanceOf[String]).asInstanceOf[mutable.Map[String, Any]]("public").asInstanceOf[mutable.Map[String, Any]]
+            val access_modifier: String = if (access == "public" || access == "private" || access == "protected") {
+              access
+            } else {
+              "public"
+            }
+            scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](isClass(1).asInstanceOf[String]).asInstanceOf[mutable.Map[String, Any]](access_modifier).asInstanceOf[mutable.Map[String, Any]]
           } else {
             scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]]
           }
@@ -145,7 +154,7 @@ object SetTheoryDSL:
             println(s"Found Set with key ${variableInfo._1}")
           } else {
             scope(variableInfo._1) = mutable.Set[BasicType]()
-            println(s"Did Not Find Set with key ${variableInfo._1}. New Set Created")
+            println(s"Creating a new set for variable ${variableInfo._1}.")
           }
 
           val result = input.eval
@@ -293,7 +302,7 @@ object SetTheoryDSL:
           } catch {
             case e: _ =>
               println("\nError. Please check your syntax.\n")
-              println(e)
+              println(e.printStackTrace())
           }
 
         /** Creates a macro binding with a given name and expression
@@ -318,7 +327,7 @@ object SetTheoryDSL:
           val className = name.eval.asInstanceOf[String]
 
           if (constructor != NoneCase) {
-            val newClass = mutable.Map[String, Any]("constructor" -> constructor )
+            val newClass = mutable.Map[String, Any]("constructor" -> constructor)
 
             if (field != NoneCase) {
 
@@ -333,21 +342,25 @@ object SetTheoryDSL:
         case Constructor(exp*) =>
           exp
         case Method(name, exp, access) =>
-          val access_modifier = if (access == "public" || access == "private" || access == "protected") {
+          val access_modifier: String = if (access == "public" || access == "private" || access == "protected") {
             access
           } else {
             "public"
           }
-          val scope = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](isClass(1).asInstanceOf[String]).asInstanceOf[mutable.Map[String, Any]](access_modifier).asInstanceOf[mutable.Map[String, Any]]
-          scope.put(name, exp);
+          val scope = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]]
+          val currentClass = scope(isClass(1).asInstanceOf[String]).asInstanceOf[mutable.Map[String, Any]]
+          val classScope = currentClass(access_modifier).asInstanceOf[mutable.Map[String, Any]]
+          classScope.put(name, exp);
         case Extends() =>
           1
+
         case NewObject(classDefName, varName) =>
           val className = classDefName.eval.asInstanceOf[String]
           val constructor = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](className).asInstanceOf[mutable.Map[String, Any]]("constructor")
+          val fields = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](className).asInstanceOf[mutable.Map[String, Any]]("fields")
           val objectName = varName.eval.asInstanceOf[(String, Any)]._1
-          constructor_helper(className, objectName, constructor.asInstanceOf[Constructor])
-        case InvokeMethod() =>
+          constructor_helper(className, objectName, constructor.asInstanceOf[Constructor], fields.asInstanceOf[ArraySeq[SetExp]])
+        case InvokeMethod(className, methodName, access) =>
           1
 
         /** NoneCase case used by various expressions
@@ -358,14 +371,22 @@ object SetTheoryDSL:
           None
       }
 
-    def constructor_helper(className: String, varName: String, constructor: Constructor): Any = {
+    def constructor_helper(className: String, varName: String, constructor: Constructor, fields: ArraySeq[SetExp]): Any = {
       isClass(0) = true
-      isClass(1) = className
-      //make copy of og class under new var name
-      val newObject = mutable.Map[String, Any]() ++= scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](className).asInstanceOf[mutable.Map[String, Any]]
+      isClass(1) = varName
+      //make copy of of class under new var name
+      val newObject = mutable.Map[String, Any]("public" -> mutable.Map[String, Any](), "private" -> mutable.Map[String, Any](), "protected" -> mutable.Map[String, Any](), "constructor" -> constructor)
       scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]].put(varName, newObject)
       val expressions: ArraySeq[SetExp] = constructor.eval.asInstanceOf[ArraySeq[SetExp]]
-      expressions.foreach(ex => ex.eval)
+      fields.foreach(field => {
+        val name = field.eval.asInstanceOf[(String, String)]._1
+        val access = field.eval.asInstanceOf[(String, String)]._2
+        newObject(access).asInstanceOf[mutable.Map[String, Any]].put(name, None)
+      })
+      expressions.foreach(ex => {
+        //if method, then just place in class. otherwise perform expression
+        ex.eval
+      })
       isClass(0) = false
       isClass(1) = ""
     }
@@ -375,8 +396,11 @@ object SetTheoryDSL:
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
   //Scope("default", ClassDef(Value("myClass"), field = Field(Value("f")), constructor = Constructor(  Assign(Variable(Value("f")), Value(2)) ) )).eval
-  Scope("default", ClassDef(Value("myClass"), field = Field(Value(("f","private")),Value(("a","private")),Value(("b","private"))), constructor = Constructor(Method("initialMethod", Assign(Variable(Value("f")), Value(2)), "private"), Assign(Variable(Value("a")), Value(99))))).eval
-  //Scope("default", NewObject(Value("myClass"), Variable(Value("newObject")))).eval
+
+  Scope("default", ClassDef(Value("myClass"),
+    field = Field(Value(("f", "private")), Value(("a", "public")), Value(("b", "private"))),
+    constructor = Constructor(Method("initialMethod", Assign(Variable(Value("f")), Value(2)), "private"), Assign(Variable(Value("a")), Value(99), "tiki")))).eval
+  Scope("default", NewObject(Value("myClass"), Variable(Value("newObject")))).eval
 
 
 

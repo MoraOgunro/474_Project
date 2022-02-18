@@ -360,9 +360,18 @@ object SetTheoryDSL:
           val fields = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](className).asInstanceOf[mutable.Map[String, Any]]("fields")
           val objectName = varName.eval.asInstanceOf[(String, Any)]._1
           constructor_helper(className, objectName, constructor.asInstanceOf[Constructor], fields.asInstanceOf[ArraySeq[SetExp]])
-        case InvokeMethod(className, methodName, access) =>
-          1
-
+        case InvokeMethod(objectName, methodName, access) =>
+          //get object
+          //get method
+          //eval method
+          val classObject = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](objectName).asInstanceOf[mutable.Map[String, Any]]
+          val ac = classObject(access).asInstanceOf[mutable.Map[String, Any]]
+          val method = ac(methodName).asInstanceOf[SetExp]
+          isClass(0) = true
+          isClass(1) = objectName
+          method.eval
+          isClass(0) = false
+          isClass(1) = ""
         /** NoneCase case used by various expressions
          *
          * return None
@@ -401,6 +410,7 @@ object SetTheoryDSL:
     field = Field(Value(("f", "private")), Value(("a", "public")), Value(("b", "private"))),
     constructor = Constructor(Method("initialMethod", Assign(Variable(Value("f")), Value(2)), "private"), Assign(Variable(Value("a")), Value(99), "tiki")))).eval
   Scope("default", NewObject(Value("myClass"), Variable(Value("newObject")))).eval
+  Scope("default", InvokeMethod("newObject","initialMethod","private")).eval
 
 
 

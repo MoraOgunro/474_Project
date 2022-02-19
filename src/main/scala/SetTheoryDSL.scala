@@ -1,3 +1,4 @@
+import SetTheoryDSL.SetExp
 import SetTheoryDSL.SetExp.*
 
 import scala.collection.immutable.ArraySeq
@@ -43,9 +44,8 @@ object SetTheoryDSL:
     case Field(expressions: SetExp*)
     case Method(name: String, exp: SetExp, access: String = "")
     //Todo: 5 implement
-    case Extends()
+    case Extends
     case NewObject(name: SetExp, varName: Variable)
-    //Todo: 7 implement
     case InvokeMethod(className: String, methodName:String, access:String)
 
     def eval: BasicType =
@@ -326,17 +326,21 @@ object SetTheoryDSL:
         case ClassDef(name, field, constructor) =>
           val className = name.eval.asInstanceOf[String]
 
-          if (constructor != NoneCase) {
-            val newClass = mutable.Map[String, Any]("constructor" -> constructor)
+          val newClass = mutable.Map[String, Any]()
+          if(constructor != NoneCase){
+            newClass.put("constructor", constructor)
+          }else{
+            newClass.put("constructor", Constructor())
 
-            if (field != NoneCase) {
-
-              val fields: ArraySeq[SetExp] = field.eval.asInstanceOf[ArraySeq[SetExp]]
-              newClass.put("fields", fields)
-
-            }
-            scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](className) = newClass
           }
+          if (field != NoneCase) {
+            val fields: ArraySeq[SetExp] = field.eval.asInstanceOf[ArraySeq[SetExp]]
+            newClass.put("fields", fields)
+
+          }else{
+            newClass.put("fields",ArraySeq[SetExp]())
+          }
+          scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](className) = newClass
         case Field(expressions*) =>
           expressions
         case Constructor(exp*) =>
@@ -351,7 +355,7 @@ object SetTheoryDSL:
           val currentClass = scope(isClass(1).asInstanceOf[String]).asInstanceOf[mutable.Map[String, Any]]
           val classScope = currentClass(access_modifier).asInstanceOf[mutable.Map[String, Any]]
           classScope.put(name, exp);
-        case Extends() =>
+        case Extends =>
           1
 
         case NewObject(classDefName, varName) =>
@@ -393,7 +397,6 @@ object SetTheoryDSL:
         newObject(access).asInstanceOf[mutable.Map[String, Any]].put(name, None)
       })
       expressions.foreach(ex => {
-        //if method, then just place in class. otherwise perform expression
         ex.eval
       })
       isClass(0) = false
@@ -411,7 +414,7 @@ object SetTheoryDSL:
     constructor = Constructor(Method("initialMethod", Assign(Variable(Value("f")), Value(2)), "private"), Assign(Variable(Value("a")), Value(99), "tiki")))).eval
   Scope("default", NewObject(Value("myClass"), Variable(Value("newObject")))).eval
   Scope("default", InvokeMethod("newObject","initialMethod","private")).eval
-
-
-
-
+//  Scope("default", ClassDef(Value("extendedClass"),
+//    field = Field(Value(("extF", "private")))
+//  ) Extends ClassDef(Value("myClass"))
+//  ).eval

@@ -44,8 +44,6 @@ object SetTheoryDSL:
     case Constructor(exp: SetExp*)
     case Field(expressions: SetExp*)
     case Method(name: String, exp: SetExp, access: String = "")
-    //Todo: 5 implement
-    //case Extends(className: String)
     case NewObject(name: SetExp, varName: Variable)
     case InvokeMethod(className: String, methodName:String, access:String)
 
@@ -324,25 +322,24 @@ object SetTheoryDSL:
           }
 
         /** */
-
-        case ClassDef(name: SetExp, field: Field, constructor: Constructor) =>
+        case ClassDef(name: SetExp, field, constructor) =>
           val className: String = name.eval.asInstanceOf[String]
           val newClass: mutable.Map[String, Any] = mutable.Map[String, Any]()
 
-
-          if (constructor != NoneCase) {
+          if (constructor != NoneCase()) {
             newClass.put("constructor", constructor)
           } else {
             newClass.put("constructor", Constructor())
           }
 
-          if (field != NoneCase) {
+          if (field != NoneCase()) {
             val fields: ArraySeq[SetExp] = field.eval.asInstanceOf[ArraySeq[SetExp]]
             newClass.put("fields", fields)
           } else {
             newClass.put("fields", ArraySeq[SetExp]())
           }
           scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](className) = newClass
+          newClass
 
         case Field(expressions*) =>
           expressions
@@ -404,8 +401,47 @@ object SetTheoryDSL:
       isClass(0) = false
       isClass(1) = ""
     }
-    infix def Extends(extendingClass: String): SetExp = {
-      Value("hello")
+    def getScope: mutable.Map[String,Any] = {
+      scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]]
+    }
+    def getClass(scope: mutable.Map[String,Any], className: String): mutable.Map[String,Any] = {
+      scope(className).asInstanceOf[mutable.Map[String,Any]]
+    }
+    def getNewExpression(classDef: ClassDef, parentClassName: String): (Value,SetExp,SetExp) = {
+      val scope = getScope
+      // get parent class and all it contains
+      val parentClass = getClass(scope,parentClassName)
+      val parentConstructor: Constructor = parentClass("constructor").asInstanceOf[Constructor]
+      val parentFields: ArraySeq[SetExp] = parentClass("fields").asInstanceOf[ArraySeq[SetExp]]
+
+      // extract child constructor, fields, and values
+      val childName = classDef.name.asInstanceOf[Value]
+      val childConstructor = if(classDef.constructor != NoneCase()){
+        classDef.constructor.asInstanceOf[Constructor]
+      }else{
+        Constructor()
+      }
+      val childFields = if(classDef.field != NoneCase()){
+        classDef.field.asInstanceOf[ArraySeq[SetExp]]
+      }else{
+        Field()
+      }
+
+      //todo combine parent and child into new constructor, fields
+      val newConstructor: Constructor = {
+        Constructor()
+      }
+      val newField = Field()
+
+      (childName,newConstructor,newField)
+    }
+    infix def Extends(parentClass: String): Any = {
+      val originalExpression: ClassDef = this.asInstanceOf[ClassDef]
+      val newExpression = getNewExpression(originalExpression, parentClass)
+      val className = newExpression._1
+      val fields = newExpression._2
+      val constructor = newExpression._3
+      ClassDef(className, fields, constructor).eval
     }
 
 @main def runSetExp(): Unit =
@@ -417,6 +453,7 @@ object SetTheoryDSL:
   Scope("default", ClassDef(Value("myClass"),
     field = Field(Value(("f", "private")), Value(("a", "public")), Value(("b", "private"))),
     constructor = Constructor(Method("initialMethod", Assign(Variable(Value("f")), Value(2)), "private"), Assign(Variable(Value("a")), Value(99), "tiki")))).eval
-  Scope("default", NewObject(Value("myClass"), Variable(Value("newObject")))).eval
-  Scope("default", InvokeMethod("newObject","initialMethod","private")).eval
-  Scope("default", ClassDef(Value("extendedClass")) Extends "myClass").eval
+  //Scope("default", NewObject(Value("myClass"), Variable(Value("newObject")))).eval
+  //Scope("default", InvokeMethod("newObject","initialMethod","private")).eval
+  //Scope("default", ).eval
+  (ClassDef(name = Value("extendedClass")) Extends "myClass")

@@ -4,6 +4,7 @@ import SetTheoryDSL.SetExp.*
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
 import scala.collection.mutable.{Map, Set}
+
 //todo: separate classDef
 //todo: tests
 //todo: report
@@ -44,7 +45,7 @@ object SetTheoryDSL:
     case Field(expressions: SetExp*)
     case Method(name: String, exp: SetExp, access: String = "")
     //Todo: 5 implement
-    case Extends
+    //case Extends(className: String)
     case NewObject(name: SetExp, varName: Variable)
     case InvokeMethod(className: String, methodName:String, access:String)
 
@@ -323,24 +324,26 @@ object SetTheoryDSL:
           }
 
         /** */
-        case ClassDef(name, field, constructor) =>
-          val className = name.eval.asInstanceOf[String]
 
-          val newClass = mutable.Map[String, Any]()
-          if(constructor != NoneCase){
+        case ClassDef(name: SetExp, field: Field, constructor: Constructor) =>
+          val className: String = name.eval.asInstanceOf[String]
+          val newClass: mutable.Map[String, Any] = mutable.Map[String, Any]()
+
+
+          if (constructor != NoneCase) {
             newClass.put("constructor", constructor)
-          }else{
+          } else {
             newClass.put("constructor", Constructor())
-
           }
+
           if (field != NoneCase) {
             val fields: ArraySeq[SetExp] = field.eval.asInstanceOf[ArraySeq[SetExp]]
             newClass.put("fields", fields)
-
-          }else{
-            newClass.put("fields",ArraySeq[SetExp]())
+          } else {
+            newClass.put("fields", ArraySeq[SetExp]())
           }
           scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](className) = newClass
+
         case Field(expressions*) =>
           expressions
         case Constructor(exp*) =>
@@ -355,8 +358,6 @@ object SetTheoryDSL:
           val currentClass = scope(isClass(1).asInstanceOf[String]).asInstanceOf[mutable.Map[String, Any]]
           val classScope = currentClass(access_modifier).asInstanceOf[mutable.Map[String, Any]]
           classScope.put(name, exp);
-        case Extends =>
-          1
 
         case NewObject(classDefName, varName) =>
           val className = classDefName.eval.asInstanceOf[String]
@@ -364,6 +365,7 @@ object SetTheoryDSL:
           val fields = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](className).asInstanceOf[mutable.Map[String, Any]]("fields")
           val objectName = varName.eval.asInstanceOf[(String, Any)]._1
           constructor_helper(className, objectName, constructor.asInstanceOf[Constructor], fields.asInstanceOf[ArraySeq[SetExp]])
+
         case InvokeMethod(objectName, methodName, access) =>
           //get object
           //get method
@@ -402,6 +404,9 @@ object SetTheoryDSL:
       isClass(0) = false
       isClass(1) = ""
     }
+    infix def Extends(extendingClass: String): SetExp = {
+      Value("hello")
+    }
 
 @main def runSetExp(): Unit =
   println("***Welcome to my Set Theory DSL!***")
@@ -414,7 +419,4 @@ object SetTheoryDSL:
     constructor = Constructor(Method("initialMethod", Assign(Variable(Value("f")), Value(2)), "private"), Assign(Variable(Value("a")), Value(99), "tiki")))).eval
   Scope("default", NewObject(Value("myClass"), Variable(Value("newObject")))).eval
   Scope("default", InvokeMethod("newObject","initialMethod","private")).eval
-//  Scope("default", ClassDef(Value("extendedClass"),
-//    field = Field(Value(("extF", "private")))
-//  ) Extends ClassDef(Value("myClass"))
-//  ).eval
+  Scope("default", ClassDef(Value("extendedClass")) Extends "myClass").eval

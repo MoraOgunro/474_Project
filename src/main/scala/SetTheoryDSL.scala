@@ -429,7 +429,10 @@ object SetTheoryDSL:
 
       //todo combine parent and child into new constructor, fields
       val newConstructor: Constructor = {
-        Constructor()
+        val unpackedParentConstructor = parentConstructor.eval.asInstanceOf[ArraySeq[SetExp]]
+        val unpackedChildConstructor = childConstructor.eval.asInstanceOf[ArraySeq[SetExp]]
+        val combinedArrayOfConstructors : ArraySeq[SetExp] = unpackedParentConstructor ++ unpackedChildConstructor
+        Constructor(combinedArrayOfConstructors : _*)
       }
       val newField = Field()
 

@@ -411,8 +411,16 @@ object SetTheoryDSL:
       val scope = getScope
       // get parent class and all it contains
       val parentClass = getClass(scope,parentClassName)
-      val parentConstructor: Constructor = parentClass("constructor").asInstanceOf[Constructor]
-      val parentFields: ArraySeq[SetExp] = parentClass("fields").asInstanceOf[ArraySeq[SetExp]]
+      val parentConstructor: Constructor = if(parentClass("constructor") != NoneCase()){
+        parentClass("constructor").asInstanceOf[Constructor]
+      }else{
+        Constructor()
+      }
+      val parentFields: ArraySeq[SetExp] = if(parentClass("fields") != NoneCase()){
+        parentClass("fields").asInstanceOf[ArraySeq[SetExp]]
+      }else{
+        ArraySeq[SetExp]()
+      }
 
       // extract child constructor, fields, and values
       val childName = classDef.name.asInstanceOf[Value]
@@ -422,9 +430,9 @@ object SetTheoryDSL:
         Constructor()
       }
       val childFields = if(classDef.field != NoneCase()){
-        classDef.field.asInstanceOf[ArraySeq[SetExp]]
+        classDef.field.eval.asInstanceOf[ArraySeq[SetExp]]
       }else{
-        Field()
+        ArraySeq[SetExp]()
       }
 
       //todo combine parent and child into new constructor, fields
@@ -434,7 +442,12 @@ object SetTheoryDSL:
         val combinedArrayOfConstructors : ArraySeq[SetExp] = unpackedParentConstructor ++ unpackedChildConstructor
         Constructor(combinedArrayOfConstructors : _*)
       }
-      val newField = Field()
+      val newField = {
+        val unpackedParentFields = parentFields.asInstanceOf[ArraySeq[SetExp]]
+        val unpackedChildFields = childFields.asInstanceOf[ArraySeq[SetExp]]
+        val combinedArrayOfFields : ArraySeq[SetExp] = unpackedParentFields ++ unpackedChildFields
+        Field(combinedArrayOfFields : _*)
+      }
 
       (childName,newConstructor,newField)
     }
@@ -442,8 +455,8 @@ object SetTheoryDSL:
       val originalExpression: ClassDef = this.asInstanceOf[ClassDef]
       val newExpression = getNewExpression(originalExpression, parentClass)
       val className = newExpression._1
-      val fields = newExpression._2
-      val constructor = newExpression._3
+      val constructor = newExpression._2
+      val fields = newExpression._3
       ClassDef(className, fields, constructor).eval
     }
 
@@ -459,4 +472,4 @@ object SetTheoryDSL:
   //Scope("default", NewObject(Value("myClass"), Variable(Value("newObject")))).eval
   //Scope("default", InvokeMethod("newObject","initialMethod","private")).eval
   //Scope("default", ).eval
-  (ClassDef(name = Value("extendedClass")) Extends "myClass")
+  Scope("default",  ClassDef(name = Value("extendedClass"), field = Field(Value(("extendedClassField","private")))) Extends "myClass").eval

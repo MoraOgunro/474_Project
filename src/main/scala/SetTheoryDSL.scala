@@ -68,7 +68,7 @@ object SetTheoryDSL:
             /** using currentScopeName to retrieve the appropriate variable bindings
              * scopeMap returns a map of variables, which is used to find the value of variable n
              */
-            (n, scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](n))
+            (n, scopeMap(currentScopeName(0))(n))
           } catch {
             /**
              * The variable n does not exist. Return a tuple containing the variable name and None
@@ -180,11 +180,11 @@ object SetTheoryDSL:
 
           /** if the requested scope exists and it contains the specified set */
           if (classOf[mutable.Map[String, Any]].isInstance(scopeMap(currentScopeName(0)))
-            && scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]].contains(variableInfo._1)) {
+            && scopeMap(currentScopeName(0)).contains(variableInfo._1)) {
             println(s"Deleting from set ${variableInfo._1}")
             // This is necessary because the user might use a variable or a value.
             // The evaluation of a variable outputs a tuple of objects, but evaluations of Values outputs a singe object
-            val scope = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]]
+            val scope = scopeMap(currentScopeName(0))
             try {
               scope(variableInfo._1).asInstanceOf[mutable.Set[BasicType]] -= input.eval.asInstanceOf[(String, BasicType)]._2
             }
@@ -193,7 +193,7 @@ object SetTheoryDSL:
                 scope(variableInfo._1).asInstanceOf[mutable.Set[BasicType]] -= input.eval
             }
           } else {
-            scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](variableInfo._1) = mutable.Set[BasicType]()
+            scopeMap(currentScopeName(0))(variableInfo._1) = mutable.Set[BasicType]()
             println(s"Did Not Find Set with key ${variableInfo._1}. Nothing was deleted.")
           }
 
@@ -377,12 +377,12 @@ object SetTheoryDSL:
           } else {
             "public"
           }
-          val scope = getScope(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]]
+          val scope = getScope(currentScopeName(0))
           val currentClass = getClass(scope, isClass(1).asInstanceOf[String])
           val classScope = currentClass(access_modifier).asInstanceOf[mutable.Map[String, Any]]
           classScope.put(name, exp);
 
-        /** initializes a new object according to the specified calss
+        /** initializes a new object according to the specified class
          *
          * param className the variable name of the class
          * param objectName the variable name of the object
@@ -527,8 +527,8 @@ object SetTheoryDSL:
         Constructor(combinedArrayOfConstructors: _*)
       }
       val newField = {
-        val unpackedParentFields = parentFields.asInstanceOf[ArraySeq[SetExp]]
-        val unpackedChildFields = childFields.asInstanceOf[ArraySeq[SetExp]]
+        val unpackedParentFields = parentFields
+        val unpackedChildFields = childFields
         val combinedArrayOfFields: ArraySeq[SetExp] = unpackedParentFields ++ unpackedChildFields
         Field(combinedArrayOfFields: _*)
       }

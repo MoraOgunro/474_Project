@@ -1,13 +1,11 @@
-import SetTheoryDSL.SetExp
+import SetTheoryDSL.{SetExp, scopeMap}
 import SetTheoryDSL.SetExp.*
 
+import javax.management.ObjectName
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
 import scala.collection.mutable.{Map, Set}
 
-//todo: separate classDef
-//todo: tests
-//todo: report
 //todo: documentation must specify how you create and evaluate expressions with class inheritance in your language
 
 /** SetTheoryDSL provides a set theory language for the user to perform actions on sets */
@@ -18,12 +16,12 @@ object SetTheoryDSL:
   /** variableBinding is the default scope. */
   val variableBinding: mutable.Map[String, Any] = mutable.Map[String, Any]()
   /** scopeMap is a collection of variable scopes */
-  val scopeMap: mutable.Map[String, Any] = mutable.Map[String, Any]("default" -> variableBinding)
+  val scopeMap: mutable.Map[String, mutable.Map[String,Any]] = mutable.Map[String, mutable.Map[String,Any]]("default" -> variableBinding)
   /** the scope that is currently active */
   val currentScopeName: Array[String] = Array("default")
   /** a map of user-defined macro commands */
   val macroBindings: mutable.Map[String, SetExp] = mutable.Map[String, SetExp]()
-  val classDefinitions: mutable.Map[String, Any] = mutable.Map[String, Any]()
+  /** used as a flag for functions */
   val isClass: Array[Any] = Array(false, "")
 
   enum SetExp:
@@ -44,8 +42,8 @@ object SetTheoryDSL:
     case Constructor(exp: SetExp*)
     case Field(expressions: SetExp*)
     case Method(name: String, exp: SetExp, access: String = "")
-    case NewObject(name: SetExp, varName: Variable)
-    case InvokeMethod(className: String, methodName:String, access:String)
+    case NewObject(className: String, objectName: String)
+    case InvokeMethod(objectName: String, methodName:String, access:String = "public")
 
     def eval: BasicType =
       this match {
@@ -141,9 +139,9 @@ object SetTheoryDSL:
             } else {
               "public"
             }
-            scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](isClass(1).asInstanceOf[String]).asInstanceOf[mutable.Map[String, Any]](access_modifier).asInstanceOf[mutable.Map[String, Any]]
+            getScope(currentScopeName(0))(isClass(1).asInstanceOf[String]).asInstanceOf[mutable.Map[String, Any]](access_modifier).asInstanceOf[mutable.Map[String, Any]]
           } else {
-            scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]]
+            getScope(currentScopeName(0))
           }
           /** variable info contains the tuple evaluation of the name variable */
           val variableInfo = name.eval.asInstanceOf[(String, BasicType)]
@@ -352,24 +350,40 @@ object SetTheoryDSL:
             "public"
           }
           val scope = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]]
-          val currentClass = scope(isClass(1).asInstanceOf[String]).asInstanceOf[mutable.Map[String, Any]]
+          val currentClass = getClass(scope, isClass(1).asInstanceOf[String])
           val classScope = currentClass(access_modifier).asInstanceOf[mutable.Map[String, Any]]
           classScope.put(name, exp);
 
-        case NewObject(classDefName, varName) =>
-          val className = classDefName.eval.asInstanceOf[String]
+        case NewObject(className, objectName) =>
           val constructor = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](className).asInstanceOf[mutable.Map[String, Any]]("constructor")
           val fields = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](className).asInstanceOf[mutable.Map[String, Any]]("fields")
-          val objectName = varName.eval.asInstanceOf[(String, Any)]._1
           constructor_helper(className, objectName, constructor.asInstanceOf[Constructor], fields.asInstanceOf[ArraySeq[SetExp]])
 
         case InvokeMethod(objectName, methodName, access) =>
           //get object
           //get method
           //eval method
-          val classObject = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](objectName).asInstanceOf[mutable.Map[String, Any]]
-          val ac = classObject(access).asInstanceOf[mutable.Map[String, Any]]
-          val method = ac(methodName).asInstanceOf[SetExp]
+          val scope = getScope(currentScopeName(0))
+          val classObject = getObject(scope, objectName)
+          val method : SetExp = {
+            val publicMap = classObject("public").asInstanceOf[mutable.Map[String,Any]]
+            val privateMap = classObject("private").asInstanceOf[mutable.Map[String,Any]]
+            val protectedMap = classObject("protected").asInstanceOf[mutable.Map[String,Any]]
+            if(publicMap.contains(methodName)){
+              publicMap(methodName).asInstanceOf[SetExp]
+            }
+            else if (privateMap.contains(methodName)) {
+              privateMap(methodName).asInstanceOf[SetExp]
+            }
+            else if (protectedMap.contains(methodName)) {
+              protectedMap(methodName).asInstanceOf[SetExp]
+            }
+            else {
+              println("Method Does Not Exist")
+              return
+            }
+
+          }
           isClass(0) = true
           isClass(1) = objectName
           method.eval
@@ -401,14 +415,14 @@ object SetTheoryDSL:
       isClass(0) = false
       isClass(1) = ""
     }
-    def getScope: mutable.Map[String,Any] = {
-      scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]]
-    }
     def getClass(scope: mutable.Map[String,Any], className: String): mutable.Map[String,Any] = {
       scope(className).asInstanceOf[mutable.Map[String,Any]]
     }
+    def getObject(scope:  mutable.Map[String,Any], objectName: String):  mutable.Map[String,Any] = {
+      scope(objectName).asInstanceOf[mutable.Map[String,Any]]
+    }
     def getNewExpression(classDef: ClassDef, parentClassName: String): (Value,SetExp,SetExp) = {
-      val scope = getScope
+      val scope = getScope(currentScopeName(0))
       // get parent class and all it contains
       val parentClass = getClass(scope,parentClassName)
       val parentConstructor: Constructor = if(parentClass("constructor") != NoneCase()){
@@ -435,7 +449,6 @@ object SetTheoryDSL:
         ArraySeq[SetExp]()
       }
 
-      //todo combine parent and child into new constructor, fields
       val newConstructor: Constructor = {
         val unpackedParentConstructor = parentConstructor.eval.asInstanceOf[ArraySeq[SetExp]]
         val unpackedChildConstructor = childConstructor.eval.asInstanceOf[ArraySeq[SetExp]]
@@ -459,6 +472,12 @@ object SetTheoryDSL:
       val fields = newExpression._3
       ClassDef(className, fields, constructor).eval
     }
+    def printScope(scopeName: String): Any = {
+      println(scopeMap(scopeName))
+    }
+    def getScope(scopeName: String) : mutable.Map[String,Any] = {
+      scopeMap(scopeName)
+    }
 
 @main def runSetExp(): Unit =
   println("***Welcome to my Set Theory DSL!***")
@@ -469,7 +488,9 @@ object SetTheoryDSL:
   Scope("default", ClassDef(Value("myClass"),
     field = Field(Value(("f", "private")), Value(("a", "public")), Value(("b", "private"))),
     constructor = Constructor(Method("initialMethod", Assign(Variable(Value("f")), Value(2)), "private"), Assign(Variable(Value("a")), Value(99), "tiki")))).eval
-  //Scope("default", NewObject(Value("myClass"), Variable(Value("newObject")))).eval
   //Scope("default", InvokeMethod("newObject","initialMethod","private")).eval
   //Scope("default", ).eval
-  Scope("default",  ClassDef(name = Value("extendedClass"), field = Field(Value(("extendedClassField","private")))) Extends "myClass").eval
+  (ClassDef(name = Value("extendedClass"), field = Field(Value(("extendedClassField","private")))) Extends "myClass")
+  NewObject("myClass", "newObject").eval
+  InvokeMethod("newObject", "initialMethod").eval
+  SetExp.Value(1).printScope("default")

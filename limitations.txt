@@ -1,0 +1,5 @@
+Limitations:
+1. The code is beginning to show signs of poor planning. Much of the code
+    has "asInstanceOf" in order to type cast variables.
+2. The user still has to specify a lot of information to accomplish simple tasks.
+3. Some functions now have two branches of functionality, one for classes and one for non-classes. This is confusing.

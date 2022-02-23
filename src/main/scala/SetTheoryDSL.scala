@@ -16,7 +16,7 @@ object SetTheoryDSL:
   /** variableBinding is the default scope. */
   val variableBinding: mutable.Map[String, Any] = mutable.Map[String, Any]()
   /** scopeMap is a collection of variable scopes */
-  val scopeMap: mutable.Map[String, mutable.Map[String,Any]] = mutable.Map[String, mutable.Map[String,Any]]("default" -> variableBinding)
+  val scopeMap: mutable.Map[String, mutable.Map[String, Any]] = mutable.Map[String, mutable.Map[String, Any]]("default" -> variableBinding)
   /** the scope that is currently active */
   val currentScopeName: Array[String] = Array("default")
   /** a map of user-defined macro commands */
@@ -43,7 +43,7 @@ object SetTheoryDSL:
     case Field(expressions: SetExp*)
     case Method(name: String, exp: SetExp, access: String = "")
     case NewObject(className: String, objectName: String)
-    case InvokeMethod(objectName: String, methodName:String, access:String = "public")
+    case InvokeMethod(objectName: String, methodName: String, access: String = "public")
 
     def eval: BasicType =
       this match {
@@ -319,7 +319,14 @@ object SetTheoryDSL:
             macroBindings(name).eval
           }
 
-        /** */
+        /** Defines a class
+         *
+         * param name the variable name of the class
+         * param field the fields to be inserted
+         * param constructor the constructor of the class
+         *
+         * returns the class
+         */
         case ClassDef(name: SetExp, field, constructor) =>
           val className: String = name.eval.asInstanceOf[String]
           val newClass: mutable.Map[String, Any] = mutable.Map[String, Any]()
@@ -336,40 +343,77 @@ object SetTheoryDSL:
           } else {
             newClass.put("fields", ArraySeq[SetExp]())
           }
-          scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](className) = newClass
+          // place class within scope
+          getScope(currentScopeName(0))(className) = newClass
           newClass
 
+        /** Retrieves the array of values held in the Field datatype
+         *
+         * param expressions the array of expressions
+         * return an ArraySeq[SetExp]
+         */
         case Field(expressions*) =>
           expressions
+
+        /** Retrieves the array of values held in the Constructor datatype
+         *
+         * param expressions the array of expressions
+         * return an ArraySeq[SetExp]
+         */
         case Constructor(exp*) =>
           exp
+
+        /** Inserts a method into an object
+         *
+         * param variable name the method
+         * param exp the expression to be inserted
+         * param access the access modifier of the method
+         *
+         * returns nothing
+         */
         case Method(name, exp, access) =>
           val access_modifier: String = if (access == "public" || access == "private" || access == "protected") {
             access
           } else {
             "public"
           }
-          val scope = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]]
+          val scope = getScope(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]]
           val currentClass = getClass(scope, isClass(1).asInstanceOf[String])
           val classScope = currentClass(access_modifier).asInstanceOf[mutable.Map[String, Any]]
           classScope.put(name, exp);
 
+        /** initializes a new object according to the specified calss
+         *
+         * param className the variable name of the class
+         * param objectName the variable name of the object
+         * returns nothing
+         */
         case NewObject(className, objectName) =>
-          val constructor = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](className).asInstanceOf[mutable.Map[String, Any]]("constructor")
-          val fields = scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]](className).asInstanceOf[mutable.Map[String, Any]]("fields")
+          val constructor = getScope(currentScopeName(0))(className).asInstanceOf[mutable.Map[String, Any]]("constructor")
+          val fields = getScope(currentScopeName(0))(className).asInstanceOf[mutable.Map[String, Any]]("fields")
+
+          /** constructor_helper does most of the work */
           constructor_helper(className, objectName, constructor.asInstanceOf[Constructor], fields.asInstanceOf[ArraySeq[SetExp]])
 
+        /** Invokes the method in the specified object
+         *
+         * param objectName the variable name of the object
+         * param methodName the variable name of the method
+         * param access the access modifier of the method (optional)
+         *
+         * returns nothing
+         */
         case InvokeMethod(objectName, methodName, access) =>
-          //get object
-          //get method
-          //eval method
           val scope = getScope(currentScopeName(0))
           val classObject = getObject(scope, objectName)
-          val method : SetExp = {
-            val publicMap = classObject("public").asInstanceOf[mutable.Map[String,Any]]
-            val privateMap = classObject("private").asInstanceOf[mutable.Map[String,Any]]
-            val protectedMap = classObject("protected").asInstanceOf[mutable.Map[String,Any]]
-            if(publicMap.contains(methodName)){
+
+          /** find and retrieve the method from the object */
+          /** search through the public, private, and protected scopes */
+          val method: SetExp = {
+            val publicMap = classObject("public").asInstanceOf[mutable.Map[String, Any]]
+            val privateMap = classObject("private").asInstanceOf[mutable.Map[String, Any]]
+            val protectedMap = classObject("protected").asInstanceOf[mutable.Map[String, Any]]
+            if (publicMap.contains(methodName)) {
               publicMap(methodName).asInstanceOf[SetExp]
             }
             else if (privateMap.contains(methodName)) {
@@ -389,6 +433,7 @@ object SetTheoryDSL:
           method.eval
           isClass(0) = false
           isClass(1) = ""
+
         /** NoneCase case used by various expressions
          *
          * return None
@@ -397,85 +442,114 @@ object SetTheoryDSL:
           None
       }
 
+    /** builds a new class tha inherits from another
+     *
+     * param parentClass the variable name of the parent class
+     *
+     * returns nothing
+     */
+    infix def Extends(parentClass: String): Any = {
+      // Extract all information from the parent class
+      val originalExpression: ClassDef = this.asInstanceOf[ClassDef]
+      /** getNewExpression combines the constructor and fields of the parent class and the child class */
+      val newExpression = getNewExpression(originalExpression, parentClass)
+      val className = newExpression._1
+      val constructor = newExpression._2
+      val fields = newExpression._3
+      // Call ClassDef on the new fields and constructor
+      ClassDef(className, fields, constructor).eval
+    }
+
+    /** builds a new object
+     *
+     * param className the variable name of the object's class
+     * param varName the variable name of the new object
+     * param constructor the constructor of the new object
+     * param fields the fields to be inserted
+     *
+     * returns nothing
+     */
     def constructor_helper(className: String, varName: String, constructor: Constructor, fields: ArraySeq[SetExp]): Any = {
+      // set isClass flag to true so that the results of any SetExp in the constructor are placed in the appropriate object
       isClass(0) = true
       isClass(1) = varName
-      //make copy of of class under new var name
+      // make a new object containing the class's constructor and insert the object into outer scope
       val newObject = mutable.Map[String, Any]("public" -> mutable.Map[String, Any](), "private" -> mutable.Map[String, Any](), "protected" -> mutable.Map[String, Any](), "constructor" -> constructor)
-      scopeMap(currentScopeName(0)).asInstanceOf[mutable.Map[String, Any]].put(varName, newObject)
-      val expressions: ArraySeq[SetExp] = constructor.eval.asInstanceOf[ArraySeq[SetExp]]
+      getScope(currentScopeName(0)).put(varName, newObject)
+      // for each Value in fields, insert it into the new object
       fields.foreach(field => {
         val name = field.eval.asInstanceOf[(String, String)]._1
         val access = field.eval.asInstanceOf[(String, String)]._2
         newObject(access).asInstanceOf[mutable.Map[String, Any]].put(name, None)
       })
+      // for each expression in the constructor, evaluate it
+      val expressions: ArraySeq[SetExp] = constructor.eval.asInstanceOf[ArraySeq[SetExp]]
       expressions.foreach(ex => {
         ex.eval
       })
+      // reset flag
       isClass(0) = false
       isClass(1) = ""
     }
-    def getClass(scope: mutable.Map[String,Any], className: String): mutable.Map[String,Any] = {
-      scope(className).asInstanceOf[mutable.Map[String,Any]]
-    }
-    def getObject(scope:  mutable.Map[String,Any], objectName: String):  mutable.Map[String,Any] = {
-      scope(objectName).asInstanceOf[mutable.Map[String,Any]]
-    }
-    def getNewExpression(classDef: ClassDef, parentClassName: String): (Value,SetExp,SetExp) = {
+
+    def getNewExpression(classDef: ClassDef, parentClassName: String): (Value, SetExp, SetExp) = {
       val scope = getScope(currentScopeName(0))
       // get parent class and all it contains
-      val parentClass = getClass(scope,parentClassName)
-      val parentConstructor: Constructor = if(parentClass("constructor") != NoneCase()){
+      val parentClass = getClass(scope, parentClassName)
+      val parentConstructor: Constructor = if (parentClass("constructor") != NoneCase()) {
         parentClass("constructor").asInstanceOf[Constructor]
-      }else{
+      } else {
         Constructor()
       }
-      val parentFields: ArraySeq[SetExp] = if(parentClass("fields") != NoneCase()){
+      val parentFields: ArraySeq[SetExp] = if (parentClass("fields") != NoneCase()) {
         parentClass("fields").asInstanceOf[ArraySeq[SetExp]]
-      }else{
+      } else {
         ArraySeq[SetExp]()
       }
 
       // extract child constructor, fields, and values
       val childName = classDef.name.asInstanceOf[Value]
-      val childConstructor = if(classDef.constructor != NoneCase()){
+      val childConstructor = if (classDef.constructor != NoneCase()) {
         classDef.constructor.asInstanceOf[Constructor]
-      }else{
+      } else {
         Constructor()
       }
-      val childFields = if(classDef.field != NoneCase()){
+      val childFields = if (classDef.field != NoneCase()) {
         classDef.field.eval.asInstanceOf[ArraySeq[SetExp]]
-      }else{
+      } else {
         ArraySeq[SetExp]()
       }
 
       val newConstructor: Constructor = {
         val unpackedParentConstructor = parentConstructor.eval.asInstanceOf[ArraySeq[SetExp]]
         val unpackedChildConstructor = childConstructor.eval.asInstanceOf[ArraySeq[SetExp]]
-        val combinedArrayOfConstructors : ArraySeq[SetExp] = unpackedParentConstructor ++ unpackedChildConstructor
-        Constructor(combinedArrayOfConstructors : _*)
+        val combinedArrayOfConstructors: ArraySeq[SetExp] = unpackedParentConstructor ++ unpackedChildConstructor
+        Constructor(combinedArrayOfConstructors: _*)
       }
       val newField = {
         val unpackedParentFields = parentFields.asInstanceOf[ArraySeq[SetExp]]
         val unpackedChildFields = childFields.asInstanceOf[ArraySeq[SetExp]]
-        val combinedArrayOfFields : ArraySeq[SetExp] = unpackedParentFields ++ unpackedChildFields
-        Field(combinedArrayOfFields : _*)
+        val combinedArrayOfFields: ArraySeq[SetExp] = unpackedParentFields ++ unpackedChildFields
+        Field(combinedArrayOfFields: _*)
       }
 
-      (childName,newConstructor,newField)
+      (childName, newConstructor, newField)
     }
-    infix def Extends(parentClass: String): Any = {
-      val originalExpression: ClassDef = this.asInstanceOf[ClassDef]
-      val newExpression = getNewExpression(originalExpression, parentClass)
-      val className = newExpression._1
-      val constructor = newExpression._2
-      val fields = newExpression._3
-      ClassDef(className, fields, constructor).eval
+
+    def getClass(scope: mutable.Map[String, Any], className: String): mutable.Map[String, Any] = {
+      scope(className).asInstanceOf[mutable.Map[String, Any]]
     }
+
+    def getObject(scope: mutable.Map[String, Any], objectName: String): mutable.Map[String, Any] = {
+      scope(objectName).asInstanceOf[mutable.Map[String, Any]]
+    }
+
     def printScope(scopeName: String): Any = {
+      println(s"The $scopeName scope:")
       println(scopeMap(scopeName))
     }
-    def getScope(scopeName: String) : mutable.Map[String,Any] = {
+
+    def getScope(scopeName: String): mutable.Map[String, Any] = {
       scopeMap(scopeName)
     }
 
@@ -483,14 +557,4 @@ object SetTheoryDSL:
   println("***Welcome to my Set Theory DSL!***")
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
-  //Scope("default", ClassDef(Value("myClass"), field = Field(Value("f")), constructor = Constructor(  Assign(Variable(Value("f")), Value(2)) ) )).eval
-
-  Scope("default", ClassDef(Value("myClass"),
-    field = Field(Value(("f", "private")), Value(("a", "public")), Value(("b", "private"))),
-    constructor = Constructor(Method("initialMethod", Assign(Variable(Value("f")), Value(2)), "private"), Assign(Variable(Value("a")), Value(99), "tiki")))).eval
-  //Scope("default", InvokeMethod("newObject","initialMethod","private")).eval
-  //Scope("default", ).eval
-  (ClassDef(name = Value("extendedClass"), field = Field(Value(("extendedClassField","private")))) Extends "myClass")
-  NewObject("myClass", "newObject").eval
-  InvokeMethod("newObject", "initialMethod").eval
-  SetExp.Value(1).printScope("default")
+  Value(1).printScope("default")

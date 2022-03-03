@@ -16,24 +16,24 @@ class SetTheoryDSLTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
   }
   "ClassDef" should "Initialize a Class" in {
     val scope = Value(1).getScope("default")
-    val myClass = Value(1).getClass(scope, "myClass")
+    val myClass = Value(1).getClass("myClass")
     assert(classOf[mutable.Map[String, Any]].isInstance(myClass))
   }
   "Constructor" should "Define a constructor for a class" in {
     val scope = Value(1).getScope("default")
-    val myClass = Value(1).getClass(scope, "myClass")
+    val myClass = Value(1).getClass("myClass")
     assert(myClass.contains("constructor"))
     assert(classOf[Constructor].isInstance(myClass("constructor")))
   }
   "Field" should "Define Fields for a class" in {
     val scope = Value(1).getScope("default")
-    val myClass = Value(1).getClass(scope, "myClass")
+    val myClass = Value(1).getClass("myClass")
     assert(myClass.contains("fields"))
     assert(classOf[ArraySeq[SetExp]].isInstance(myClass("fields")))
   }
   "Method" should "Define Methods for a class" in {
     val scope = Value(1).getScope("default")
-    val myClass = Value(1).getClass(scope, "myClass")
+    val myClass = Value(1).getClass("myClass")
     val constructor = myClass("constructor").asInstanceOf[Constructor]
     val expressions = constructor.exp
     val method = expressions.head
@@ -42,7 +42,7 @@ class SetTheoryDSLTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
   "NewObject" should "Initialize a new object" in {
     val scope = Value(1).getScope("default")
     NewObject("myClass", "newObject").eval
-    val myClass = Value(1).getClass(scope, "myClass")
+    val myClass = Value(1).getClass("myClass")
     val myObject = Value(1).getObject(scope, "newObject")
     assert(scope.contains("newObject"))
     assert(myObject.contains("constructor"))
@@ -52,7 +52,7 @@ class SetTheoryDSLTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
   }
   "InvokeMethod" should "run the specified method" in {
     val scope = Value(1).getScope("default")
-    val myClass = Value(1).getClass(scope, "myClass")
+    val myClass = Value(1).getClass("myClass")
     NewObject("myClass", "newObject").eval
     InvokeMethod("newObject", "initialMethod").eval
     val myObject = Value(1).getObject(scope, "newObject")
@@ -62,7 +62,7 @@ class SetTheoryDSLTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
   "Extends" should "inherit patent class into child class" in {
     val scope = Value(1).getScope("default")
     ClassDef(name = Value("extendedClass"), field = Field(Value(("extendedClassField","private")))) Extends "myClass"
-    val extendedClass = Value(1).getClass(scope, "extendedClass")
+    val extendedClass = Value(1).getClass("extendedClass")
     assert(classOf[mutable.Map[String, Any]].isInstance(extendedClass))
   }
 }

@@ -6,7 +6,9 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
 import scala.collection.mutable.{Map, Set}
 
-//todo: documentation must specify how you create and evaluate expressions with class inheritance in your language
+/*
+  Mora Ogunro
+*/
 
 /** SetTheoryDSL provides a set theory language for the user to perform actions on sets */
 
@@ -23,6 +25,9 @@ object SetTheoryDSL:
   val macroBindings: mutable.Map[String, SetExp] = mutable.Map[String, SetExp]()
   /** used as a flag for functions */
   val isClass: Array[Any] = Array(false, "")
+  /***/
+  val classMap: mutable.Map[String, mutable.Map[String, Any]] = mutable.Map[String, mutable.Map[String, Any]]()
+
 
   enum SetExp:
     case Value(input: BasicType)
@@ -139,7 +144,7 @@ object SetTheoryDSL:
             } else {
               "public"
             }
-            getScope(currentScopeName(0))(isClass(1).asInstanceOf[String]).asInstanceOf[mutable.Map[String, Any]](access_modifier).asInstanceOf[mutable.Map[String, Any]]
+            getObject(getScope(currentScopeName(0)),isClass(1).asInstanceOf[String])(access_modifier).asInstanceOf[mutable.Map[String, Any]]
           } else {
             getScope(currentScopeName(0))
           }
@@ -344,7 +349,7 @@ object SetTheoryDSL:
             newClass.put("fields", ArraySeq[SetExp]())
           }
           // place class within scope
-          getScope(currentScopeName(0))(className) = newClass
+          classMap(className) = newClass
           newClass
 
         /** Retrieves the array of values held in the Field datatype
@@ -377,8 +382,8 @@ object SetTheoryDSL:
           } else {
             "public"
           }
-          val scope = getScope(currentScopeName(0))
-          val currentClass = getClass(scope, isClass(1).asInstanceOf[String])
+
+          val currentClass = getObject(getScope(currentScopeName(0)), isClass(1).asInstanceOf[String])
           val classScope = currentClass(access_modifier).asInstanceOf[mutable.Map[String, Any]]
           classScope.put(name, exp);
 
@@ -389,8 +394,8 @@ object SetTheoryDSL:
          * returns nothing
          */
         case NewObject(className, objectName) =>
-          val constructor = getScope(currentScopeName(0))(className).asInstanceOf[mutable.Map[String, Any]]("constructor")
-          val fields = getScope(currentScopeName(0))(className).asInstanceOf[mutable.Map[String, Any]]("fields")
+          val constructor = getClass(className)("constructor")
+          val fields = getClass(className)("fields")
 
           /** constructor_helper does most of the work */
           constructor_helper(className, objectName, constructor.asInstanceOf[Constructor], fields.asInstanceOf[ArraySeq[SetExp]])
@@ -495,7 +500,7 @@ object SetTheoryDSL:
     def getNewExpression(classDef: ClassDef, parentClassName: String): (Value, SetExp, SetExp) = {
       val scope = getScope(currentScopeName(0))
       // get parent class and all it contains
-      val parentClass = getClass(scope, parentClassName)
+      val parentClass = getClass(parentClassName)
       val parentConstructor: Constructor = if (parentClass("constructor") != NoneCase()) {
         parentClass("constructor").asInstanceOf[Constructor]
       } else {
@@ -536,8 +541,8 @@ object SetTheoryDSL:
       (childName, newConstructor, newField)
     }
 
-    def getClass(scope: mutable.Map[String, Any], className: String): mutable.Map[String, Any] = {
-      scope(className).asInstanceOf[mutable.Map[String, Any]]
+    def getClass(className: String): mutable.Map[String, Any] = {
+      classMap(className)
     }
 
     def getObject(scope: mutable.Map[String, Any], objectName: String): mutable.Map[String, Any] = {

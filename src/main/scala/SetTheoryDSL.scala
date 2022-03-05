@@ -24,9 +24,12 @@ object SetTheoryDSL:
   /** a map of user-defined macro commands */
   val macroBindings: mutable.Map[String, SetExp] = mutable.Map[String, SetExp]()
   /** used as a flag for functions */
-  val isClass: Array[Any] = Array(false, "")
+  val isObject: Array[Any] = Array(false, "")
   /***/
   val classMap: mutable.Map[String, mutable.Map[String, Any]] = mutable.Map[String, mutable.Map[String, Any]]()
+  /***/
+  val relationshipMap: mutable.Map[String, String] = mutable.Map[String,String]()
+  val isClassDef: Array[Boolean] = Array(false)
 
 
   enum SetExp:
@@ -49,6 +52,7 @@ object SetTheoryDSL:
     case Method(name: String, exp: SetExp, access: String = "")
     case NewObject(className: String, objectName: String)
     case InvokeMethod(objectName: String, methodName: String, access: String = "public")
+    case AbstractClassDef(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())
 
     def eval: BasicType =
       this match {
@@ -80,7 +84,7 @@ object SetTheoryDSL:
              */
             case e: NoSuchElementException =>
 
-              if (!isClass(0).asInstanceOf[Boolean]) {
+              if (!isObject(0).asInstanceOf[Boolean]) {
                 println(s"No variable $n exists within scope ${currentScopeName(0)}")
               }
               (n, None)
@@ -138,13 +142,13 @@ object SetTheoryDSL:
             throw new IllegalArgumentException
           }
 
-          val scope = if (isClass(0).asInstanceOf[Boolean]) {
+          val scope = if (isObject(0).asInstanceOf[Boolean]) {
             val access_modifier: String = if (access == "public" || access == "private" || access == "protected") {
               access
             } else {
               "public"
             }
-            getObject(getScope(currentScopeName(0)),isClass(1).asInstanceOf[String])(access_modifier).asInstanceOf[mutable.Map[String, Any]]
+            getObject(getScope(currentScopeName(0)),isObject(1).asInstanceOf[String])(access_modifier).asInstanceOf[mutable.Map[String, Any]]
           } else {
             getScope(currentScopeName(0))
           }
@@ -333,6 +337,7 @@ object SetTheoryDSL:
          * returns the class
          */
         case ClassDef(name: SetExp, field, constructor) =>
+          isClassDef(0) = true
           val className: String = name.eval.asInstanceOf[String]
           val newClass: mutable.Map[String, Any] = mutable.Map[String, Any]()
 
@@ -349,8 +354,17 @@ object SetTheoryDSL:
             newClass.put("fields", ArraySeq[SetExp]())
           }
           // place class within scope
-          classMap(className) = newClass
+          val result = constructor_helper(className, className, newClass("constructor").asInstanceOf[Constructor], newClass("fields").asInstanceOf[ArraySeq[SetExp]])
+          //classMap(className) = newClass
+          classMap(className) = result
+          relationshipMap.put(className, "None")
+          newClass.put("classType", "concrete")
+          isClassDef(0) = false
           newClass
+        /***/
+        case AbstractClassDef(name: SetExp, field, constructor) => {
+
+        }
 
         /** Retrieves the array of values held in the Field datatype
          *
@@ -383,7 +397,7 @@ object SetTheoryDSL:
             "public"
           }
 
-          val currentClass = getObject(getScope(currentScopeName(0)), isClass(1).asInstanceOf[String])
+          val currentClass = getObject(getScope(currentScopeName(0)), isObject(1).asInstanceOf[String])
           val classScope = currentClass(access_modifier).asInstanceOf[mutable.Map[String, Any]]
           classScope.put(name, exp);
 
@@ -399,6 +413,7 @@ object SetTheoryDSL:
 
           /** constructor_helper does most of the work */
           constructor_helper(className, objectName, constructor.asInstanceOf[Constructor], fields.asInstanceOf[ArraySeq[SetExp]])
+
 
         /** Invokes the method in the specified object
          *
@@ -433,11 +448,11 @@ object SetTheoryDSL:
             }
 
           }
-          isClass(0) = true
-          isClass(1) = objectName
+          isObject(0) = true
+          isObject(1) = objectName
           method.eval
-          isClass(0) = false
-          isClass(1) = ""
+          isObject(0) = false
+          isObject(1) = ""
 
         /** NoneCase case used by various expressions
          *
@@ -445,6 +460,7 @@ object SetTheoryDSL:
          */
         case NoneCase() =>
           None
+
       }
 
     /** builds a new class tha inherits from another
@@ -463,6 +479,7 @@ object SetTheoryDSL:
       val fields = newExpression._3
       // Call ClassDef on the new fields and constructor
       ClassDef(className, fields, constructor).eval
+      relationshipMap.put(className.eval.asInstanceOf[String], parentClass)
     }
 
     /** builds a new object
@@ -474,13 +491,15 @@ object SetTheoryDSL:
      *
      * returns nothing
      */
-    def constructor_helper(className: String, varName: String, constructor: Constructor, fields: ArraySeq[SetExp]): Any = {
+    def constructor_helper(className: String, objectName: String, constructor: Constructor, fields: ArraySeq[SetExp]): mutable.Map[String,Any] = {
       // set isClass flag to true so that the results of any SetExp in the constructor are placed in the appropriate object
-      isClass(0) = true
-      isClass(1) = varName
+      isObject(0) = true
+      isObject(1) = objectName
+      val scope = getScope(currentScopeName(0))
       // make a new object containing the class's constructor and insert the object into outer scope
       val newObject = mutable.Map[String, Any]("public" -> mutable.Map[String, Any](), "private" -> mutable.Map[String, Any](), "protected" -> mutable.Map[String, Any](), "constructor" -> constructor)
-      getScope(currentScopeName(0)).put(varName, newObject)
+      scope.put(objectName, newObject)
+
       // for each Value in fields, insert it into the new object
       fields.foreach(field => {
         val name = field.eval.asInstanceOf[(String, String)]._1
@@ -492,9 +511,16 @@ object SetTheoryDSL:
       expressions.foreach(ex => {
         ex.eval
       })
+
+      newObject.put("type", className)
       // reset flag
-      isClass(0) = false
-      isClass(1) = ""
+      isObject(0) = false
+      isObject(1) = ""
+      if(isClassDef(0)){
+        scope.remove(objectName)
+        newObject.put("fields", fields)
+      }
+      newObject
     }
 
     def getNewExpression(classDef: ClassDef, parentClassName: String): (Value, SetExp, SetExp) = {

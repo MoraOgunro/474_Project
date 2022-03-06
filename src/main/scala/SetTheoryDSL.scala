@@ -1,7 +1,5 @@
-import SetTheoryDSL.{SetExp, scopeMap}
 import SetTheoryDSL.SetExp.*
 
-import javax.management.ObjectName
 import scala.collection.immutable.ArraySeq
 import scala.collection.{immutable, mutable}
 import scala.collection.mutable.{Map, Set}
@@ -27,6 +25,7 @@ object SetTheoryDSL:
   val isObject: Array[Any] = Array(false, "")
   /***/
   val classMap: mutable.Map[String, mutable.Map[String, Any]] = mutable.Map[String, mutable.Map[String, Any]]()
+  val interfaceMap: mutable.Map[String, mutable.Map[String, Any]] = mutable.Map[String, mutable.Map[String, Any]]()
   /***/
   val relationshipMap: mutable.Map[String, String] = mutable.Map[String,String]()
   val isClassDef: Array[Boolean] = Array(false)
@@ -53,6 +52,7 @@ object SetTheoryDSL:
     case NewObject(className: String, objectName: String)
     case InvokeMethod(objectName: String, methodName: String, access: String = "public")
     case AbstractClassDef(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())
+    case InterfaceDecl(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())
 
     def eval: BasicType =
       this match {
@@ -362,7 +362,7 @@ object SetTheoryDSL:
           isClassDef(0) = false
           newClass
         /***/
-        case AbstractClassDef(name: SetExp, field, constructor) => {
+        case AbstractClassDef(name: SetExp, field, constructor) =>
           isClassDef(0) = true
           val className: String = name.eval.asInstanceOf[String]
           val newClass: mutable.Map[String, Any] = mutable.Map[String, Any]()
@@ -389,7 +389,35 @@ object SetTheoryDSL:
           relationshipMap.put(className, "None")
           isClassDef(0) = false
           newClass
-        }
+
+        case InterfaceDecl(name, field, constructor) =>
+          val methodList = constructor.eval
+          isClassDef(0) = true
+          val interfaceName: String = name.eval.asInstanceOf[String]
+          val newInterface: mutable.Map[String, Any] = mutable.Map[String, Any]()
+
+          if (constructor != NoneCase()) {
+            newInterface.put("constructor", constructor)
+          } else {
+            newInterface.put("constructor", Constructor())
+          }
+
+          if (field != NoneCase()) {
+            val fields: ArraySeq[SetExp] = field.eval.asInstanceOf[ArraySeq[SetExp]]
+            newInterface.put("fields", fields)
+          } else {
+            newInterface.put("fields", ArraySeq[SetExp]())
+          }
+          // place class within scope
+          val result = constructor_helper(interfaceName, interfaceName, newInterface("constructor").asInstanceOf[Constructor], newInterface("fields").asInstanceOf[ArraySeq[SetExp]])
+          if(!checkInterface(result, interfaceName)){
+            throw new Error("Interfaces must not contain any implementations or private fields.")
+          }
+          result.put("classType", "interface")
+          interfaceMap(interfaceName) = result
+          relationshipMap.put(interfaceName, "None")
+          isClassDef(0) = false
+          newInterface
 
         /** Retrieves the array of values held in the Field datatype
          *
@@ -521,6 +549,25 @@ object SetTheoryDSL:
       }
     }
 
+    def hasCycle(start: String) : Boolean = {
+
+      val visited : mutable.Set[Any] = mutable.Set()
+      val cur : Array[Any] = Array(start)
+
+      while(cur(0) != None && !visited.contains(cur(0))){
+        if(cur(0) == "None"){
+          return false
+        }
+        visited.addOne(cur(0).asInstanceOf[String])
+        cur(0) = relationshipMap(cur(0).asInstanceOf[String])
+      }
+      true
+    }
+
+    /*
+     * HELPER METHODS
+     */
+
     def checkAbstractImplementation(derivedClass: mutable.Map[String,Any], className: String): Boolean ={
       val classType: String = derivedClass("classType").asInstanceOf[String]
 
@@ -534,6 +581,22 @@ object SetTheoryDSL:
           throw new AbstractMethodError("All abstract methods must be implemented in a concrete class")
         }
 
+      }
+
+      true
+    }
+    def checkInterface(interface: mutable.Map[String,Any], interfaceName: String): Boolean ={
+
+      val allMethodsAndFields = getAllMethodsAndFields(interface)
+      // check that all methods are implemented
+      val result = allMethodsAndFields.values.forall( field => {
+        field == None || field == NoneCase()
+      }) && interface("private").asInstanceOf[mutable.Map[String, Any]].isEmpty
+      if(!result){
+
+        classMap.remove(interfaceName)
+        relationshipMap.remove(interfaceName)
+        throw new Error("Interfaces must not have any private fields or any concrete methods.")
       }
 
       true
@@ -703,25 +766,7 @@ object SetTheoryDSL:
       // If the class contains a method with no expressions, return true. Else Return False
       publicAccess.values.exists(_ == NoneCase()) || privateAccess.values.exists(_ == NoneCase()) || protectedAccess.values.exists(_ == NoneCase())
     }
-    def hasCycle(start: String) : Boolean = {
 
-      relationshipMap("E") = "D"
-      relationshipMap("D") = "C"
-      relationshipMap("C") = "E"
-      relationshipMap("A") = "None"
-
-      val visited : mutable.Set[Any] = mutable.Set()
-      val cur : Array[Any] = Array(start)
-
-      while(cur(0) != None && !visited.contains(cur(0))){
-        if(cur(0) == "None"){
-          return false
-        }
-        visited.addOne(cur(0).asInstanceOf[String])
-        cur(0) = relationshipMap(cur(0).asInstanceOf[String]).asInstanceOf[String]
-      }
-      true
-    }
 
 @main def runSetExp(): Unit =
   println("***Welcome to my Set Theory DSL!***")
@@ -732,6 +777,11 @@ object SetTheoryDSL:
 //    constructor = Constructor(Method("initialMethod", NoneCase(), "private"), Assign(Variable(Value("a")), Value(99), "tiki"))).eval
 //
 //  AbstractClassDef(name = Value("derivedClass"), field = Field(Value(("yolo", "public")))).eval
+    InterfaceDecl(
+      name = Value("interface1"),
+      field = Field(Value(("field1", "public")),Value(("field2", "public"))),
+      constructor = Constructor(Method("method1",NoneCase(),"public"))
+    ).eval
 
   Value(1).hasCycle("E")
   Value(1).printScope("default")

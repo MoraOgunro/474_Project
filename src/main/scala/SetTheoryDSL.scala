@@ -3,7 +3,7 @@ import SetTheoryDSL.SetExp.*
 
 import javax.management.ObjectName
 import scala.collection.immutable.ArraySeq
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 import scala.collection.mutable.{Map, Set}
 
 /*
@@ -356,14 +356,39 @@ object SetTheoryDSL:
           // place class within scope
           val result = constructor_helper(className, className, newClass("constructor").asInstanceOf[Constructor], newClass("fields").asInstanceOf[ArraySeq[SetExp]])
           //classMap(className) = newClass
+          result.put("classType", "concrete")
           classMap(className) = result
           relationshipMap.put(className, "None")
-          newClass.put("classType", "concrete")
           isClassDef(0) = false
           newClass
         /***/
         case AbstractClassDef(name: SetExp, field, constructor) => {
+          isClassDef(0) = true
+          val className: String = name.eval.asInstanceOf[String]
+          val newClass: mutable.Map[String, Any] = mutable.Map[String, Any]()
 
+          if (constructor != NoneCase()) {
+            newClass.put("constructor", constructor)
+          } else {
+            newClass.put("constructor", Constructor())
+          }
+
+          if (field != NoneCase()) {
+            val fields: ArraySeq[SetExp] = field.eval.asInstanceOf[ArraySeq[SetExp]]
+            newClass.put("fields", fields)
+          } else {
+            newClass.put("fields", ArraySeq[SetExp]())
+          }
+          // place class within scope
+          val result = constructor_helper(className, className, newClass("constructor").asInstanceOf[Constructor], newClass("fields").asInstanceOf[ArraySeq[SetExp]])
+          if(!checkAbstractClass(result)){
+            throw new AbstractMethodError("Abstract classes must contain at least one abstract method")
+          }
+          result.put("classType", "abstract")
+          classMap(className) = result
+          relationshipMap.put(className, "None")
+          isClassDef(0) = false
+          newClass
         }
 
         /** Retrieves the array of values held in the Field datatype
@@ -399,6 +424,7 @@ object SetTheoryDSL:
 
           val currentClass = getObject(getScope(currentScopeName(0)), isObject(1).asInstanceOf[String])
           val classScope = currentClass(access_modifier).asInstanceOf[mutable.Map[String, Any]]
+
           classScope.put(name, exp);
 
         /** initializes a new object according to the specified class
@@ -471,15 +497,57 @@ object SetTheoryDSL:
      */
     infix def Extends(parentClass: String): Any = {
       // Extract all information from the parent class
-      val originalExpression: ClassDef = this.asInstanceOf[ClassDef]
+      val originalExpression = this
       /** getNewExpression combines the constructor and fields of the parent class and the child class */
-      val newExpression = getNewExpression(originalExpression, parentClass)
+
+      val newExpression = if(classOf[ClassDef].isInstance(originalExpression)) {
+        getNewExpression(originalExpression.asInstanceOf[ClassDef], parentClass)
+      }else{
+        getNewExpression(originalExpression.asInstanceOf[AbstractClassDef], parentClass)
+      }
       val className = newExpression._1
       val constructor = newExpression._2
       val fields = newExpression._3
       // Call ClassDef on the new fields and constructor
-      ClassDef(className, fields, constructor).eval
+      if(classOf[AbstractClassDef].isInstance(originalExpression)){
+        AbstractClassDef(className, fields, constructor).eval
+      }else{
+        ClassDef(className, fields, constructor).eval
+      }
       relationshipMap.put(className.eval.asInstanceOf[String], parentClass)
+      if(getClass(parentClass)("classType") == "abstract"){
+        // check if the derived class is implemented properly
+        checkAbstractImplementation(getClass(className.eval.asInstanceOf[String]), className.eval.asInstanceOf[String])
+      }
+    }
+
+    def checkAbstractImplementation(derivedClass: mutable.Map[String,Any], className: String): Boolean ={
+      val classType: String = derivedClass("classType").asInstanceOf[String]
+
+      val allMethodsAndFields = getAllMethodsAndFields(derivedClass)
+      if(classType != "abstract"){
+        // check that all methods are implemented
+        if(allMethodsAndFields.values.toSeq.contains(NoneCase())){
+
+          classMap.remove(className)
+          relationshipMap.remove(className)
+          throw new AbstractMethodError("All abstract methods must be implemented in a concrete class")
+        }
+
+      }
+
+      true
+    }
+
+    /** Returns a tuple of a key array and value array of every field or method in the class */
+    def getAllMethodsAndFields(currentClass: mutable.Map[String,Any]) : immutable.Map[String,Any] = {
+      val publicAccess = currentClass("public").asInstanceOf[mutable.Map[String,Any]]
+      val privateAccess = currentClass("private").asInstanceOf[mutable.Map[String,Any]]
+      val protectedAccess = currentClass("protected").asInstanceOf[mutable.Map[String,Any]]
+      val keyList : List[String] = publicAccess.keys.toList ++ privateAccess.keys.toList ++ protectedAccess.keys.toList
+      val valueList : List[Any] = publicAccess.values.toList ++ privateAccess.values.toList ++ protectedAccess.values.toList
+      //mutable.Map() ++ (keyList zip valueList)
+      (keyList zip valueList).toMap
     }
 
     /** builds a new object
@@ -524,8 +592,8 @@ object SetTheoryDSL:
     }
 
     def getNewExpression(classDef: ClassDef, parentClassName: String): (Value, SetExp, SetExp) = {
-      val scope = getScope(currentScopeName(0))
       // get parent class and all it contains
+
       val parentClass = getClass(parentClassName)
       val parentConstructor: Constructor = if (parentClass("constructor") != NoneCase()) {
         parentClass("constructor").asInstanceOf[Constructor]
@@ -555,7 +623,52 @@ object SetTheoryDSL:
         val unpackedParentConstructor = parentConstructor.eval.asInstanceOf[ArraySeq[SetExp]]
         val unpackedChildConstructor = childConstructor.eval.asInstanceOf[ArraySeq[SetExp]]
         val combinedArrayOfConstructors: ArraySeq[SetExp] = unpackedParentConstructor ++ unpackedChildConstructor
-        Constructor(combinedArrayOfConstructors: _*)
+
+        Constructor(combinedArrayOfConstructors.distinct: _*)
+      }
+      val newField = {
+        val unpackedParentFields = parentFields
+        val unpackedChildFields = childFields
+        val combinedArrayOfFields: ArraySeq[SetExp] = unpackedParentFields ++ unpackedChildFields
+        Field(combinedArrayOfFields: _*)
+      }
+
+      (childName, newConstructor, newField)
+    }
+    def getNewExpression(classDef: AbstractClassDef, parentClassName: String): (Value, SetExp, SetExp) = {
+      // get parent class and all it contains
+
+      val parentClass = getClass(parentClassName)
+      val parentConstructor: Constructor = if (parentClass("constructor") != NoneCase()) {
+        parentClass("constructor").asInstanceOf[Constructor]
+      } else {
+        Constructor()
+      }
+      val parentFields: ArraySeq[SetExp] = if (parentClass("fields") != NoneCase()) {
+        parentClass("fields").asInstanceOf[ArraySeq[SetExp]]
+      } else {
+        ArraySeq[SetExp]()
+      }
+
+      // extract child constructor, fields, and values
+      val childName = classDef.name.asInstanceOf[Value]
+      val childConstructor = if (classDef.constructor != NoneCase()) {
+        classDef.constructor.asInstanceOf[Constructor]
+      } else {
+        Constructor()
+      }
+      val childFields = if (classDef.field != NoneCase()) {
+        classDef.field.eval.asInstanceOf[ArraySeq[SetExp]]
+      } else {
+        ArraySeq[SetExp]()
+      }
+
+      val newConstructor: Constructor = {
+        val unpackedParentConstructor = parentConstructor.eval.asInstanceOf[ArraySeq[SetExp]]
+        val unpackedChildConstructor = childConstructor.eval.asInstanceOf[ArraySeq[SetExp]]
+        val combinedArrayOfConstructors: ArraySeq[SetExp] = unpackedParentConstructor ++ unpackedChildConstructor
+
+        Constructor(combinedArrayOfConstructors.distinct: _*)
       }
       val newField = {
         val unpackedParentFields = parentFields
@@ -583,9 +696,42 @@ object SetTheoryDSL:
     def getScope(scopeName: String): mutable.Map[String, Any] = {
       scopeMap(scopeName)
     }
+    def checkAbstractClass(abstractClass: mutable.Map[String,Any]) : Boolean = {
+      val publicAccess = abstractClass("public").asInstanceOf[mutable.Map[String,Any]]
+      val privateAccess = abstractClass("private").asInstanceOf[mutable.Map[String,Any]]
+      val protectedAccess = abstractClass("protected").asInstanceOf[mutable.Map[String,Any]]
+      // If the class contains a method with no expressions, return true. Else Return False
+      publicAccess.values.exists(_ == NoneCase()) || privateAccess.values.exists(_ == NoneCase()) || protectedAccess.values.exists(_ == NoneCase())
+    }
+    def hasCycle(start: String) : Boolean = {
+
+      relationshipMap("E") = "D"
+      relationshipMap("D") = "C"
+      relationshipMap("C") = "E"
+      relationshipMap("A") = "None"
+
+      val visited : mutable.Set[Any] = mutable.Set()
+      val cur : Array[Any] = Array(start)
+
+      while(cur(0) != None && !visited.contains(cur(0))){
+        if(cur(0) == "None"){
+          return false
+        }
+        visited.addOne(cur(0).asInstanceOf[String])
+        cur(0) = relationshipMap(cur(0).asInstanceOf[String]).asInstanceOf[String]
+      }
+      true
+    }
 
 @main def runSetExp(): Unit =
   println("***Welcome to my Set Theory DSL!***")
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
+//  AbstractClassDef(Value("myClass"),
+//    field = Field(Value(("f", "private")), Value(("a", "public")), Value(("b", "private"))),
+//    constructor = Constructor(Method("initialMethod", NoneCase(), "private"), Assign(Variable(Value("a")), Value(99), "tiki"))).eval
+//
+//  AbstractClassDef(name = Value("derivedClass"), field = Field(Value(("yolo", "public")))).eval
+
+  Value(1).hasCycle("E")
   Value(1).printScope("default")

@@ -468,7 +468,6 @@ object SetTheoryDSL:
           /** constructor_helper does most of the work */
           constructor_helper(className, objectName, constructor.asInstanceOf[Constructor], fields.asInstanceOf[ArraySeq[SetExp]])
 
-
         /** Invokes the method in the specified object
          *
          * param objectName the variable name of the object
@@ -514,7 +513,6 @@ object SetTheoryDSL:
          */
         case NoneCase() =>
           None
-
       }
 
     /** builds a new class tha inherits from another
@@ -549,6 +547,33 @@ object SetTheoryDSL:
       }
     }
 
+    infix def Implements(parentInterface: String): Any = {
+      // Extract all information from the parent class
+      val originalExpression = this
+      /** getNewExpression combines the constructor and fields of the parent class and the child class */
+
+      val newExpression = if(classOf[ClassDef].isInstance(originalExpression)) {
+        getNewExpression(originalExpression.asInstanceOf[ClassDef], parentInterface)
+      }else{
+        getNewExpression(originalExpression.asInstanceOf[AbstractClassDef], parentInterface)
+      }
+      val className = newExpression._1
+      val constructor = newExpression._2
+      val fields = newExpression._3
+      // Call ClassDef on the new fields and constructor
+      if(classOf[AbstractClassDef].isInstance(originalExpression)){
+        AbstractClassDef(className, fields, constructor).eval
+      }else{
+        ClassDef(className, fields, constructor).eval
+      }
+      relationshipMap.put(className.eval.asInstanceOf[String], parentInterface)
+
+        // check if the derived class is implemented properly
+      checkInterfaceImplementation(getClass(className.eval.asInstanceOf[String]), className.eval.asInstanceOf[String])
+
+
+    }
+
     def hasCycle(start: String) : Boolean = {
 
       val visited : mutable.Set[Any] = mutable.Set()
@@ -563,56 +588,78 @@ object SetTheoryDSL:
       }
       true
     }
-
     /*
      * HELPER METHODS
      */
-
     def checkAbstractImplementation(derivedClass: mutable.Map[String,Any], className: String): Boolean ={
       val classType: String = derivedClass("classType").asInstanceOf[String]
 
-      val allMethodsAndFields = getAllMethodsAndFields(derivedClass)
+      val allMethodsAndFields = getAllMethodsAndFieldsAsList(derivedClass)
       if(classType != "abstract"){
         // check that all methods are implemented
-        if(allMethodsAndFields.values.toSeq.contains(NoneCase())){
-
-          classMap.remove(className)
-          relationshipMap.remove(className)
-          throw new AbstractMethodError("All abstract methods must be implemented in a concrete class")
-        }
-
+        allMethodsAndFields.foreach( info => {
+          if(info._2 == NoneCase()) {
+            classMap.remove(className)
+            relationshipMap.remove(className)
+            throw new AbstractMethodError("All abstract methods must be implemented in a concrete class")
+          }
+        })
       }
 
+      true
+    }
+    def checkInterfaceImplementation(derivedClass: mutable.Map[String,Any], className: String): Boolean ={
+      val classType: String = derivedClass("classType").asInstanceOf[String]
+
+      val allMethodsAndFields = getAllMethodsAndFieldsAsList(derivedClass)
+      if(classType != "abstract"){
+        // check that all methods are implemented
+        allMethodsAndFields.foreach( info => {
+          if(info._2 == NoneCase()){
+            classMap.remove(className)
+            relationshipMap.remove(className)
+            throw new AbstractMethodError(s"All Interface methods must be implemented in a concrete class. ${className} has unimplemented method ${info._1}.")
+          }
+        })
+      }
       true
     }
     def checkInterface(interface: mutable.Map[String,Any], interfaceName: String): Boolean ={
 
-      val allMethodsAndFields = getAllMethodsAndFields(interface)
-      // check that all methods are implemented
-      val result = allMethodsAndFields.values.forall( field => {
-        field == None || field == NoneCase()
-      }) && interface("private").asInstanceOf[mutable.Map[String, Any]].isEmpty
-      if(!result){
-
-        classMap.remove(interfaceName)
-        relationshipMap.remove(interfaceName)
-        throw new Error("Interfaces must not have any private fields or any concrete methods.")
+      val allFieldsAndMethods = getAllMethodsAndFieldsAsMap(interface)
+      val privateAccess = allFieldsAndMethods._2
+      if(privateAccess.nonEmpty){
+        throw new Error("Interface method/field.")
       }
 
+      val fieldAndMethodList = getAllMethodsAndFieldsAsList(interface)
+
+      fieldAndMethodList.foreach( info => {
+        if( info._2 != None && info._2 != NoneCase()){
+          throw new Error(s"Interfaces must be completely abstract. ${info._1} is not abstract.")
+        }
+
+      })
       true
     }
-
     /** Returns a tuple of a key array and value array of every field or method in the class */
-    def getAllMethodsAndFields(currentClass: mutable.Map[String,Any]) : immutable.Map[String,Any] = {
+    def getAllMethodsAndFieldsAsList(currentClass: mutable.Map[String,Any]) : List[(String, Any)] = {
       val publicAccess = currentClass("public").asInstanceOf[mutable.Map[String,Any]]
       val privateAccess = currentClass("private").asInstanceOf[mutable.Map[String,Any]]
       val protectedAccess = currentClass("protected").asInstanceOf[mutable.Map[String,Any]]
       val keyList : List[String] = publicAccess.keys.toList ++ privateAccess.keys.toList ++ protectedAccess.keys.toList
       val valueList : List[Any] = publicAccess.values.toList ++ privateAccess.values.toList ++ protectedAccess.values.toList
       //mutable.Map() ++ (keyList zip valueList)
-      (keyList zip valueList).toMap
+      val a = (keyList zip valueList)
+      a
     }
-
+    def getAllMethodsAndFieldsAsMap(currentClass: mutable.Map[String,Any]) : (mutable.Map[String, Any], mutable.Map[String, Any], mutable.Map[String, Any]) = {
+      val publicAccess = currentClass("public").asInstanceOf[mutable.Map[String,Any]]
+      val privateAccess = currentClass("private").asInstanceOf[mutable.Map[String,Any]]
+      val protectedAccess = currentClass("protected").asInstanceOf[mutable.Map[String,Any]]
+      //mutable.Map() ++ (keyList zip valueList)
+      (publicAccess, privateAccess, protectedAccess)
+    }
     /** builds a new object
      *
      * param className the variable name of the object's class
@@ -653,7 +700,6 @@ object SetTheoryDSL:
       }
       newObject
     }
-
     def getNewExpression(classDef: ClassDef, parentClassName: String): (Value, SetExp, SetExp) = {
       // get parent class and all it contains
 
@@ -742,20 +788,28 @@ object SetTheoryDSL:
 
       (childName, newConstructor, newField)
     }
-
     def getClass(className: String): mutable.Map[String, Any] = {
-      classMap(className)
+      if(classMap.contains(className)) {
+        classMap(className)
+      }else{
+        interfaceMap(className)
+      }
     }
-
     def getObject(scope: mutable.Map[String, Any], objectName: String): mutable.Map[String, Any] = {
       scope(objectName).asInstanceOf[mutable.Map[String, Any]]
     }
-
     def printScope(scopeName: String): Any = {
       println(s"The $scopeName scope:")
       println(scopeMap(scopeName))
     }
-
+    def printInterfaces: Any = {
+      println("Interfaces: ")
+      println(interfaceMap)
+    }
+    def printClasses: Any = {
+      println("Classes: ")
+      println(classMap)
+    }
     def getScope(scopeName: String): mutable.Map[String, Any] = {
       scopeMap(scopeName)
     }
@@ -767,7 +821,6 @@ object SetTheoryDSL:
       publicAccess.values.exists(_ == NoneCase()) || privateAccess.values.exists(_ == NoneCase()) || protectedAccess.values.exists(_ == NoneCase())
     }
 
-
 @main def runSetExp(): Unit =
   println("***Welcome to my Set Theory DSL!***")
   println("***Please insert your expressions in the main function***\n")
@@ -777,11 +830,15 @@ object SetTheoryDSL:
 //    constructor = Constructor(Method("initialMethod", NoneCase(), "private"), Assign(Variable(Value("a")), Value(99), "tiki"))).eval
 //
 //  AbstractClassDef(name = Value("derivedClass"), field = Field(Value(("yolo", "public")))).eval
-    InterfaceDecl(
+  InterfaceDecl(
       name = Value("interface1"),
       field = Field(Value(("field1", "public")),Value(("field2", "public"))),
       constructor = Constructor(Method("method1",NoneCase(),"public"))
     ).eval
+  ClassDef(Value("myClass"),
+    Field(Value("HELLO","private")),
+    constructor = Constructor(Method("method1", Assign(Variable(Value("f")), Value(2)), "public"))) Implements "interface1"
 
-  Value(1).hasCycle("E")
   Value(1).printScope("default")
+  Value(1).printClasses
+  Value(1).printInterfaces

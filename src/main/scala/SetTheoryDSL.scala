@@ -462,6 +462,10 @@ object SetTheoryDSL:
          * returns nothing
          */
         case NewObject(className, objectName) =>
+          val classType = getClass(className)("classType")
+          if(classType == "abstract"){
+            throw new Error("Abstract Classes cannot be instantiated.")
+          }
           val constructor = getClass(className)("constructor")
           val fields = getClass(className)("fields")
 
@@ -554,6 +558,8 @@ object SetTheoryDSL:
 
       val newExpression = if(classOf[ClassDef].isInstance(originalExpression)) {
         getNewExpression(originalExpression.asInstanceOf[ClassDef], parentInterface)
+      }else if(classOf[InterfaceDecl].isInstance(originalExpression)){
+        getNewExpression(originalExpression.asInstanceOf[InterfaceDecl], parentInterface)
       }else{
         getNewExpression(originalExpression.asInstanceOf[AbstractClassDef], parentInterface)
       }
@@ -563,6 +569,8 @@ object SetTheoryDSL:
       // Call ClassDef on the new fields and constructor
       if(classOf[AbstractClassDef].isInstance(originalExpression)){
         AbstractClassDef(className, fields, constructor).eval
+      }else if(classOf[InterfaceDecl].isInstance(originalExpression)){
+        InterfaceDecl(className, fields, constructor).eval
       }else{
         ClassDef(className, fields, constructor).eval
       }
@@ -612,7 +620,7 @@ object SetTheoryDSL:
       val classType: String = derivedClass("classType").asInstanceOf[String]
 
       val allMethodsAndFields = getAllMethodsAndFieldsAsList(derivedClass)
-      if(classType != "abstract"){
+      if(classType == "concrete"){
         // check that all methods are implemented
         allMethodsAndFields.foreach( info => {
           if(info._2 == NoneCase()){
@@ -621,6 +629,23 @@ object SetTheoryDSL:
             throw new AbstractMethodError(s"All Interface methods must be implemented in a concrete class. ${className} has unimplemented method ${info._1}.")
           }
         })
+      }else if(classType == "interface"){
+        allMethodsAndFields.foreach( info => {
+          if(info._2 != None && info._2 != NoneCase()){
+            classMap.remove(className)
+            relationshipMap.remove(className)
+            throw new AbstractMethodError(s"Interfaces must be completely abstract ${className} implements ${info._1}")
+          }
+        })
+      }else if(classType == "abstract"){
+        allMethodsAndFields.foreach( info => {
+          if(info._2 == None || info._2 == NoneCase()){
+            return true
+          }
+        })
+        classMap.remove(className)
+        relationshipMap.remove(className)
+        throw new AbstractMethodError(s"Abstract class must have one abstract field or method. ${className} has only concrete methods and fields.")
       }
       true
     }
@@ -788,6 +813,50 @@ object SetTheoryDSL:
 
       (childName, newConstructor, newField)
     }
+    def getNewExpression(classDef: InterfaceDecl, parentClassName: String): (Value, SetExp, SetExp) = {
+      // get parent class and all it contains
+
+      val parentClass = getClass(parentClassName)
+      val parentConstructor: Constructor = if (parentClass("constructor") != NoneCase()) {
+        parentClass("constructor").asInstanceOf[Constructor]
+      } else {
+        Constructor()
+      }
+      val parentFields: ArraySeq[SetExp] = if (parentClass("fields") != NoneCase()) {
+        parentClass("fields").asInstanceOf[ArraySeq[SetExp]]
+      } else {
+        ArraySeq[SetExp]()
+      }
+
+      // extract child constructor, fields, and values
+      val childName = classDef.name.asInstanceOf[Value]
+      val childConstructor = if (classDef.constructor != NoneCase()) {
+        classDef.constructor.asInstanceOf[Constructor]
+      } else {
+        Constructor()
+      }
+      val childFields = if (classDef.field != NoneCase()) {
+        classDef.field.eval.asInstanceOf[ArraySeq[SetExp]]
+      } else {
+        ArraySeq[SetExp]()
+      }
+
+      val newConstructor: Constructor = {
+        val unpackedParentConstructor = parentConstructor.eval.asInstanceOf[ArraySeq[SetExp]]
+        val unpackedChildConstructor = childConstructor.eval.asInstanceOf[ArraySeq[SetExp]]
+        val combinedArrayOfConstructors: ArraySeq[SetExp] = unpackedParentConstructor ++ unpackedChildConstructor
+
+        Constructor(combinedArrayOfConstructors.distinct: _*)
+      }
+      val newField = {
+        val unpackedParentFields = parentFields
+        val unpackedChildFields = childFields
+        val combinedArrayOfFields: ArraySeq[SetExp] = unpackedParentFields ++ unpackedChildFields
+        Field(combinedArrayOfFields: _*)
+      }
+
+      (childName, newConstructor, newField)
+    }
     def getClass(className: String): mutable.Map[String, Any] = {
       if(classMap.contains(className)) {
         classMap(className)
@@ -828,16 +897,26 @@ object SetTheoryDSL:
 //  AbstractClassDef(Value("myClass"),
 //    field = Field(Value(("f", "private")), Value(("a", "public")), Value(("b", "private"))),
 //    constructor = Constructor(Method("initialMethod", NoneCase(), "private"), Assign(Variable(Value("a")), Value(99), "tiki"))).eval
+//  NewObject("myClass","badObject").eval
 //
-//  AbstractClassDef(name = Value("derivedClass"), field = Field(Value(("yolo", "public")))).eval
+//  InterfaceDecl(
+//      name = Value("interface1"),
+//      field = Field(Value(("field1", "public")),Value(("field2", "public"))),
+//      constructor = Constructor(Method("method1",NoneCase(),"public"))
+//    ).eval
+//  ClassDef(Value("myClass"),
+//    Field(Value("HELLO","private")),
+//    constructor = Constructor(Method("method1", Assign(Variable(Value("f")), Value(2)), "public"))) Implements "interface1"
   InterfaceDecl(
       name = Value("interface1"),
       field = Field(Value(("field1", "public")),Value(("field2", "public"))),
       constructor = Constructor(Method("method1",NoneCase(),"public"))
     ).eval
-  ClassDef(Value("myClass"),
-    Field(Value("HELLO","private")),
-    constructor = Constructor(Method("method1", Assign(Variable(Value("f")), Value(2)), "public"))) Implements "interface1"
+  InterfaceDecl(
+      name = Value("interface2"),
+      field = Field(Value(("field3", "public"))),
+      constructor = Constructor()
+    ) Implements "interface1"
 
   Value(1).printScope("default")
   Value(1).printClasses

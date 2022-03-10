@@ -532,6 +532,9 @@ object SetTheoryDSL:
 
       val newExpression = if(classOf[ClassDef].isInstance(originalExpression)) {
         getNewExpression(originalExpression.asInstanceOf[ClassDef], parentClass)
+      }else if(classOf[InterfaceDecl].isInstance(originalExpression)){
+        //throw new Error("Interface cannot implement another interface.")
+        getNewExpression(originalExpression.asInstanceOf[InterfaceDecl], parentClass)
       }else{
         getNewExpression(originalExpression.asInstanceOf[AbstractClassDef], parentClass)
       }
@@ -541,6 +544,8 @@ object SetTheoryDSL:
       // Call ClassDef on the new fields and constructor
       if(classOf[AbstractClassDef].isInstance(originalExpression)){
         AbstractClassDef(className, fields, constructor).eval
+      }else if(classOf[InterfaceDecl].isInstance(originalExpression)){
+        InterfaceDecl(className, fields, constructor).eval
       }else{
         ClassDef(className, fields, constructor).eval
       }
@@ -559,7 +564,8 @@ object SetTheoryDSL:
       val newExpression = if(classOf[ClassDef].isInstance(originalExpression)) {
         getNewExpression(originalExpression.asInstanceOf[ClassDef], parentInterface)
       }else if(classOf[InterfaceDecl].isInstance(originalExpression)){
-        getNewExpression(originalExpression.asInstanceOf[InterfaceDecl], parentInterface)
+        throw new Error("Interface cannot implement another interface.")
+        //getNewExpression(originalExpression.asInstanceOf[InterfaceDecl], parentInterface)
       }else{
         getNewExpression(originalExpression.asInstanceOf[AbstractClassDef], parentInterface)
       }
@@ -912,11 +918,15 @@ object SetTheoryDSL:
       field = Field(Value(("field1", "public")),Value(("field2", "public"))),
       constructor = Constructor(Method("method1",NoneCase(),"public"))
     ).eval
+//  AbstractClassDef(Value("myClass"),
+//    field = Field(Value(("a", "public"))),
+//    constructor = Constructor(Method("initialMethod", NoneCase(), "private"))) Implements "interface1"
+  //NewObject("myClass","badObject").eval
   InterfaceDecl(
       name = Value("interface2"),
       field = Field(Value(("field3", "public"))),
       constructor = Constructor()
-    ) Implements "interface1"
+    ) Extends "interface1"
 
   Value(1).printScope("default")
   Value(1).printClasses

@@ -900,9 +900,9 @@ object SetTheoryDSL:
   println("***Welcome to my Set Theory DSL!***")
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
-//  AbstractClassDef(Value("myClass"),
-//    field = Field(Value(("f", "private")), Value(("a", "public")), Value(("b", "private"))),
-//    constructor = Constructor(Method("initialMethod", NoneCase(), "private"), Assign(Variable(Value("a")), Value(99), "tiki"))).eval
+  AbstractClassDef(Value("myClass"),
+    field = Field(Value(("f", "private"))),
+    constructor = Constructor(Method("initialMethod", NoneCase(), "private"), Assign(Variable(Value("a")), Value(99), "tiki"))).eval
 //  NewObject("myClass","badObject").eval
 //
 //  InterfaceDecl(
@@ -913,20 +913,20 @@ object SetTheoryDSL:
 //  ClassDef(Value("myClass"),
 //    Field(Value("HELLO","private")),
 //    constructor = Constructor(Method("method1", Assign(Variable(Value("f")), Value(2)), "public"))) Implements "interface1"
-  InterfaceDecl(
-      name = Value("interface1"),
-      field = Field(Value(("field1", "public")),Value(("field2", "public"))),
-      constructor = Constructor(Method("method1",NoneCase(),"public"))
-    ).eval
-//  AbstractClassDef(Value("myClass"),
-//    field = Field(Value(("a", "public"))),
-//    constructor = Constructor(Method("initialMethod", NoneCase(), "private"))) Implements "interface1"
+//  InterfaceDecl(
+//      name = Value("interface1"),
+//      field = Field(Value(("field1", "public")),Value(("field2", "public"))),
+//      constructor = Constructor(Method("method1",NoneCase(),"public"))
+//    ).eval
+  AbstractClassDef(Value("derivedClass"),
+    field = Field(Value(("a", "public"))),
+    constructor = Constructor()) Extends "myClass"
   //NewObject("myClass","badObject").eval
-  InterfaceDecl(
-      name = Value("interface2"),
-      field = Field(Value(("field3", "public"))),
-      constructor = Constructor()
-    ) Extends "interface1"
+//  InterfaceDecl(
+//      name = Value("interface2"),
+//      field = Field(Value(("field3", "public"))),
+//      constructor = Constructor()
+//    ) Extends "interface1"
 
   Value(1).printScope("default")
   Value(1).printClasses

@@ -607,6 +607,11 @@ object SetTheoryDSL:
      */
     def checkAbstractImplementation(derivedClass: mutable.Map[String,Any], className: String): Boolean ={
       val classType: String = derivedClass("classType").asInstanceOf[String]
+      if(hasCycle(className)){
+        classMap.remove(className)
+        relationshipMap.remove(className)
+        throw new Error(s"There is a cycle of inheritance.")
+      }
 
       val allMethodsAndFields = getAllMethodsAndFieldsAsList(derivedClass)
       if(classType != "abstract"){
@@ -625,6 +630,12 @@ object SetTheoryDSL:
     def checkInterfaceImplementation(derivedClass: mutable.Map[String,Any], className: String): Boolean ={
       val classType: String = derivedClass("classType").asInstanceOf[String]
 
+      if(hasCycle(className)){
+        classMap.remove(className)
+        relationshipMap.remove(className)
+        throw new Error(s"There is a cycle of inheritance.")
+      }
+
       val allMethodsAndFields = getAllMethodsAndFieldsAsList(derivedClass)
       if(classType == "concrete"){
         // check that all methods are implemented
@@ -632,7 +643,7 @@ object SetTheoryDSL:
           if(info._2 == NoneCase()){
             classMap.remove(className)
             relationshipMap.remove(className)
-            throw new AbstractMethodError(s"All Interface methods must be implemented in a concrete class. ${className} has unimplemented method ${info._1}.")
+            throw new Error(s"All Interface methods must be implemented in a concrete class. $className has unimplemented method ${info._1}.")
           }
         })
       }else if(classType == "interface"){
@@ -640,7 +651,7 @@ object SetTheoryDSL:
           if(info._2 != None && info._2 != NoneCase()){
             classMap.remove(className)
             relationshipMap.remove(className)
-            throw new AbstractMethodError(s"Interfaces must be completely abstract ${className} implements ${info._1}")
+            throw new Error(s"Interfaces must be completely abstract $className implements ${info._1}")
           }
         })
       }else if(classType == "abstract"){
@@ -651,8 +662,10 @@ object SetTheoryDSL:
         })
         classMap.remove(className)
         relationshipMap.remove(className)
-        throw new AbstractMethodError(s"Abstract class must have one abstract field or method. ${className} has only concrete methods and fields.")
+        throw new Error(s"Abstract class must have one abstract field or method. $className has only concrete methods and fields.")
       }
+
+
       true
     }
     def checkInterface(interface: mutable.Map[String,Any], interfaceName: String): Boolean ={
@@ -681,7 +694,7 @@ object SetTheoryDSL:
       val keyList : List[String] = publicAccess.keys.toList ++ privateAccess.keys.toList ++ protectedAccess.keys.toList
       val valueList : List[Any] = publicAccess.values.toList ++ privateAccess.values.toList ++ protectedAccess.values.toList
       //mutable.Map() ++ (keyList zip valueList)
-      val a = (keyList zip valueList)
+      val a = keyList zip valueList
       a
     }
     def getAllMethodsAndFieldsAsMap(currentClass: mutable.Map[String,Any]) : (mutable.Map[String, Any], mutable.Map[String, Any], mutable.Map[String, Any]) = {
@@ -918,9 +931,16 @@ object SetTheoryDSL:
 //      field = Field(Value(("field1", "public")),Value(("field2", "public"))),
 //      constructor = Constructor(Method("method1",NoneCase(),"public"))
 //    ).eval
-  AbstractClassDef(Value("derivedClass"),
+  AbstractClassDef(Value("C"),
+    field = Field(Value(("c", "public"))),
+    constructor = Constructor()) Extends "A"
+  AbstractClassDef(Value("B"),
+    field = Field(Value(("b", "public"))),
+    constructor = Constructor()) Extends "C"
+  AbstractClassDef(Value("A"),
     field = Field(Value(("a", "public"))),
-    constructor = Constructor()) Extends "myClass"
+    constructor = Constructor()) Extends "B"
+  // A,B,C,C
   //NewObject("myClass","badObject").eval
 //  InterfaceDecl(
 //      name = Value("interface2"),

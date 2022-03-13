@@ -23,13 +23,14 @@ object SetTheoryDSL:
   val macroBindings: mutable.Map[String, SetExp] = mutable.Map[String, SetExp]()
   /** used as a flag for functions */
   val isObject: Array[Any] = Array(false, "")
-  /***/
+  /** the collection of classes that have been created */
   val classMap: mutable.Map[String, mutable.Map[String, Any]] = mutable.Map[String, mutable.Map[String, Any]]()
+  /** the collection of interfaces that have been created */
   val interfaceMap: mutable.Map[String, mutable.Map[String, Any]] = mutable.Map[String, mutable.Map[String, Any]]()
-  /***/
+  /** a hashmap denoting child->parent relationships */
   val relationshipMap: mutable.Map[String, String] = mutable.Map[String,String]()
+  /** flag used for expressions */
   val isClassDef: Array[Boolean] = Array(false)
-
 
   enum SetExp:
     case Value(input: BasicType)
@@ -361,18 +362,26 @@ object SetTheoryDSL:
           relationshipMap.put(className, "None")
           isClassDef(0) = false
           newClass
-        /***/
+        /** Defines an Abstract Class
+         *
+         * param name the variable name of the class
+         * param field the fields to be inserted
+         * param constructor the constructor of the class
+         *
+         * returns the class
+         */
         case AbstractClassDef(name: SetExp, field, constructor) =>
           isClassDef(0) = true
           val className: String = name.eval.asInstanceOf[String]
           val newClass: mutable.Map[String, Any] = mutable.Map[String, Any]()
 
+          // if the constructor is missing, then insert an empty constructor
           if (constructor != NoneCase()) {
             newClass.put("constructor", constructor)
           } else {
             newClass.put("constructor", Constructor())
           }
-
+          // if the fields are missing, then insert an empty Field
           if (field != NoneCase()) {
             val fields: ArraySeq[SetExp] = field.eval.asInstanceOf[ArraySeq[SetExp]]
             newClass.put("fields", fields)
@@ -389,18 +398,27 @@ object SetTheoryDSL:
           relationshipMap.put(className, "None")
           isClassDef(0) = false
           newClass
-
+        /** Defines an Interface
+         *
+         * param name the variable name of the interface
+         * param field the fields to be inserted
+         * param constructor the constructor of the class
+         *
+         * returns the class
+         */
         case InterfaceDecl(name, field, constructor) =>
           val methodList = constructor.eval
           isClassDef(0) = true
           val interfaceName: String = name.eval.asInstanceOf[String]
           val newInterface: mutable.Map[String, Any] = mutable.Map[String, Any]()
+          // if the constructor is missing, then insert an empty constructor
 
           if (constructor != NoneCase()) {
             newInterface.put("constructor", constructor)
           } else {
             newInterface.put("constructor", Constructor())
           }
+          // if the fields are missing, then insert an empty Field
 
           if (field != NoneCase()) {
             val fields: ArraySeq[SetExp] = field.eval.asInstanceOf[ArraySeq[SetExp]]
@@ -555,7 +573,12 @@ object SetTheoryDSL:
         checkAbstractImplementation(getClass(className.eval.asInstanceOf[String]), className.eval.asInstanceOf[String])
       }
     }
-
+    /** implements an interface
+     *
+     * param parentInterface, the name of the interface to be implemented
+     *
+     * returns nothing
+     */
     infix def Implements(parentInterface: String): Any = {
       // Extract all information from the parent class
       val originalExpression = this
@@ -587,7 +610,7 @@ object SetTheoryDSL:
 
 
     }
-
+    /** detects cycles of inheritance */
     def hasCycle(start: String) : Boolean = {
 
       val visited : mutable.Set[Any] = mutable.Set()
@@ -602,9 +625,14 @@ object SetTheoryDSL:
       }
       true
     }
-    /*
-     * HELPER METHODS
-     */
+    // HELPER METHODS
+    /** determines if an abstract class has been implemented correctly
+     *
+     * param derivedClass the subClass/subInterface
+     * param className the name of the parent Class/Interface
+     *
+     * returns true if valid, or error if invalid
+     * */
     def checkAbstractImplementation(derivedClass: mutable.Map[String,Any], className: String): Boolean ={
       val classType: String = derivedClass("classType").asInstanceOf[String]
       if(hasCycle(className)){
@@ -627,6 +655,13 @@ object SetTheoryDSL:
 
       true
     }
+    /** determines if an interface has been implemented correctly
+     *
+     * param derivedClass the subClass/subInterface
+     * param className the name of the parent Class/Interface
+     *
+     * returns true if valid, or error if invalid
+     * */
     def checkInterfaceImplementation(derivedClass: mutable.Map[String,Any], className: String): Boolean ={
       val classType: String = derivedClass("classType").asInstanceOf[String]
 
@@ -668,6 +703,13 @@ object SetTheoryDSL:
 
       true
     }
+    /** determines if an interface is valid
+     *
+     * param interface the interface
+     * param interfaceName the name of the interface
+     *
+     * returns true if valid, or error if invalid
+     * */
     def checkInterface(interface: mutable.Map[String,Any], interfaceName: String): Boolean ={
 
       val allFieldsAndMethods = getAllMethodsAndFieldsAsMap(interface)
@@ -686,6 +728,14 @@ object SetTheoryDSL:
       })
       true
     }
+    /** determines if an abstract class is valid or not */
+    def checkAbstractClass(abstractClass: mutable.Map[String,Any]) : Boolean = {
+      val publicAccess = abstractClass("public").asInstanceOf[mutable.Map[String,Any]]
+      val privateAccess = abstractClass("private").asInstanceOf[mutable.Map[String,Any]]
+      val protectedAccess = abstractClass("protected").asInstanceOf[mutable.Map[String,Any]]
+      // If the class contains a method with no expressions, return true. Else Return False
+      publicAccess.values.exists(_ == NoneCase()) || privateAccess.values.exists(_ == NoneCase()) || protectedAccess.values.exists(_ == NoneCase())
+    }
     /** Returns a tuple of a key array and value array of every field or method in the class */
     def getAllMethodsAndFieldsAsList(currentClass: mutable.Map[String,Any]) : List[(String, Any)] = {
       val publicAccess = currentClass("public").asInstanceOf[mutable.Map[String,Any]]
@@ -697,6 +747,7 @@ object SetTheoryDSL:
       val a = keyList zip valueList
       a
     }
+    /** returns all methods and fields of an object as a map */
     def getAllMethodsAndFieldsAsMap(currentClass: mutable.Map[String,Any]) : (mutable.Map[String, Any], mutable.Map[String, Any], mutable.Map[String, Any]) = {
       val publicAccess = currentClass("public").asInstanceOf[mutable.Map[String,Any]]
       val privateAccess = currentClass("private").asInstanceOf[mutable.Map[String,Any]]
@@ -744,6 +795,7 @@ object SetTheoryDSL:
       }
       newObject
     }
+    /** concatenates the definitions of two objects */
     def getNewExpression(classDef: ClassDef, parentClassName: String): (Value, SetExp, SetExp) = {
       // get parent class and all it contains
 
@@ -876,6 +928,7 @@ object SetTheoryDSL:
 
       (childName, newConstructor, newField)
     }
+    /** returns a class or interface */
     def getClass(className: String): mutable.Map[String, Any] = {
       if(classMap.contains(className)) {
         classMap(className)
@@ -883,31 +936,30 @@ object SetTheoryDSL:
         interfaceMap(className)
       }
     }
+    /** returns an object within a scope */
     def getObject(scope: mutable.Map[String, Any], objectName: String): mutable.Map[String, Any] = {
       scope(objectName).asInstanceOf[mutable.Map[String, Any]]
     }
+    /** prints a scope */
     def printScope(scopeName: String): Any = {
       println(s"The $scopeName scope:")
       println(scopeMap(scopeName))
     }
+    /** prints all interfaces */
     def printInterfaces: Any = {
       println("Interfaces: ")
       println(interfaceMap)
     }
+    /** prints all classes */
     def printClasses: Any = {
       println("Classes: ")
       println(classMap)
     }
+    /** returns a scope */
     def getScope(scopeName: String): mutable.Map[String, Any] = {
       scopeMap(scopeName)
     }
-    def checkAbstractClass(abstractClass: mutable.Map[String,Any]) : Boolean = {
-      val publicAccess = abstractClass("public").asInstanceOf[mutable.Map[String,Any]]
-      val privateAccess = abstractClass("private").asInstanceOf[mutable.Map[String,Any]]
-      val protectedAccess = abstractClass("protected").asInstanceOf[mutable.Map[String,Any]]
-      // If the class contains a method with no expressions, return true. Else Return False
-      publicAccess.values.exists(_ == NoneCase()) || privateAccess.values.exists(_ == NoneCase()) || protectedAccess.values.exists(_ == NoneCase())
-    }
+
 
 @main def runSetExp(): Unit =
   println("***Welcome to my Set Theory DSL!***")

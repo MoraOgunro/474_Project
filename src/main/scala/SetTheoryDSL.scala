@@ -965,41 +965,7 @@ object SetTheoryDSL:
   println("***Welcome to my Set Theory DSL!***")
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
-  AbstractClassDef(Value("myClass"),
-    field = Field(Value(("f", "private"))),
-    constructor = Constructor(Method("initialMethod", NoneCase(), "private"), Assign(Variable(Value("a")), Value(99), "tiki"))).eval
-//  NewObject("myClass","badObject").eval
-//
-//  InterfaceDecl(
-//      name = Value("interface1"),
-//      field = Field(Value(("field1", "public")),Value(("field2", "public"))),
-//      constructor = Constructor(Method("method1",NoneCase(),"public"))
-//    ).eval
-//  ClassDef(Value("myClass"),
-//    Field(Value("HELLO","private")),
-//    constructor = Constructor(Method("method1", Assign(Variable(Value("f")), Value(2)), "public"))) Implements "interface1"
-//  InterfaceDecl(
-//      name = Value("interface1"),
-//      field = Field(Value(("field1", "public")),Value(("field2", "public"))),
-//      constructor = Constructor(Method("method1",NoneCase(),"public"))
-//    ).eval
-  AbstractClassDef(Value("C"),
-    field = Field(Value(("c", "public"))),
-    constructor = Constructor()) Extends "A"
-  AbstractClassDef(Value("B"),
-    field = Field(Value(("b", "public"))),
-    constructor = Constructor()) Extends "C"
-  AbstractClassDef(Value("A"),
-    field = Field(Value(("a", "public"))),
-    constructor = Constructor()) Extends "B"
-  // A,B,C,C
-  //NewObject("myClass","badObject").eval
-//  InterfaceDecl(
-//      name = Value("interface2"),
-//      field = Field(Value(("field3", "public"))),
-//      constructor = Constructor()
-//    ) Extends "interface1"
-
+  
   Value(1).printScope("default")
   Value(1).printClasses
   Value(1).printInterfaces

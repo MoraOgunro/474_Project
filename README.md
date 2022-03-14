@@ -23,6 +23,36 @@ Scope("default", SetExp)
 ```
 See the Syntax for Scope for a more detailed example.
 
+**AbstractClassDef(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())**
+
+At least one method must be abstract. To make a method abstract, the expression must be "NoneCase()" or None.
+```
+AbstractClassDef(
+    name = Value("abstractClass"),
+    field = Field(Value(("aField1", "private")), Value(("aField2", "public"))),
+    constructor = Constructor(Method("initialMethod", NoneCase(), "private"))
+    ).eval
+```
+
+in this example, initialMethod has a method body of "NoneCase()", which makes it abstract. See Method, field, and constructor syntax for details.
+
+**InterfaceDecl(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())**
+
+```
+InterfaceDecl(
+    name = Value("interface1"),
+    field = Field(Value(("iField1", "public"))),
+    constructor = Constructor(Method("iMethod",NoneCase(),"public"))
+    ).eval
+```
+An interface MUST NOT contain any private fields or methods. All methods must be abstract, meaning the method body (the expression inside of Method) is NoneCase().
+
+**Constructor(exp: SetExp\*)**
+
+```
+Constructor(Assign(Variable(Value("a")), Value(99), "public"))
+```
+
 **ClassDef(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())**
 
 _name_ : Value (required) \

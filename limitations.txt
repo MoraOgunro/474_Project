@@ -1,2 +1,3 @@
 Limitations:
-1. the getNewExpression function is overloaded 3 times for ClassDef, AbstractClassDef, and InterfaceDecl
+1. the getNewExpression function is overloaded 3 times for ClassDef, AbstractClassDef, and InterfaceDecl. It would be better to just use contracts.
+2. The relationshipMap (which holds child->parent relationships between classes) takes preference according to order. For instance, if a class A would extend a class C and implement and interface I, then the interface I would be the parent of A since it was entered second.

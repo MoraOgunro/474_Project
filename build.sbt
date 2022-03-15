@@ -4,7 +4,7 @@ ThisBuild / scalaVersion := "3.1.0"
 
 lazy val root = (project in file("."))
   .settings(
-    name := "474_HW2"
+    name := "474_Project"
   )
 val scalaticVersion = "3.2.9"
 

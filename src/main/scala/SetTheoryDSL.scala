@@ -29,8 +29,15 @@ object SetTheoryDSL:
   val interfaceMap: mutable.Map[String, mutable.Map[String, Any]] = mutable.Map[String, mutable.Map[String, Any]]()
   /** a hashmap denoting child->parent relationships */
   val relationshipMap: mutable.Map[String, String] = mutable.Map[String,String]()
-  /** flag used for expressions */
+  /** flag used for creating Classes */
   val isClassDef: Array[Boolean] = Array(false)
+  /** flag for exceptions */
+  val isException: Array[Any] = Array(false, "")
+  /** flag used for expressions */
+  val isExceptionDef: Array[Boolean] = Array(false)
+  /** a collection of all exceptions which have been defined */
+  val exceptionMap: mutable.Map[String, mutable.Map[String, Any]] = mutable.Map[String, mutable.Map[String, Any]]()
+  
 
   enum SetExp:
     case Value(input: BasicType)
@@ -54,6 +61,7 @@ object SetTheoryDSL:
     case InvokeMethod(objectName: String, methodName: String, access: String = "public")
     case AbstractClassDef(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())
     case InterfaceDecl(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())
+    case IF(condition: Any, thenClause: SetExp, elseClause: SetExp = NoneCase())
 
     def eval: BasicType =
       this match {
@@ -97,7 +105,7 @@ object SetTheoryDSL:
          * param input the object to be tested
          * return true if the input exists in a set and false if not.
          */
-        case Check(name, input) =>
+        case Check(name, input)  =>
 
           /** name is a variable. Retrieve the evaluation of this variable, which is a tuple. */
           val result = name.eval.asInstanceOf[(String, BasicType)]
@@ -528,6 +536,24 @@ object SetTheoryDSL:
           method.eval
           isObject(0) = false
           isObject(1) = ""
+        /***/
+        case IF(condition, thenClause, elseClause) =>
+          // First check if the condition is a SetExp
+          val scope = getScope(currentScopeName(0))
+          if(classOf[SetExp].isInstance(condition)) {
+            //implement IF on SetExp
+            if (condition.asInstanceOf[SetExp].eval.asInstanceOf[Boolean]) {
+              return thenClause.eval
+            } else if (elseClause != NoneCase()) { // If the elseClause exists
+              return elseClause.eval
+            }
+          }else{ // If the condition was not a SetExp
+            if (condition.asInstanceOf[Boolean]) {
+              return thenClause.eval
+            } else if (elseClause != NoneCase()) {
+              return elseClause.eval
+            }
+          }
 
         /** NoneCase case used by various expressions
          *
@@ -957,6 +983,9 @@ object SetTheoryDSL:
     }
     /** returns a scope */
     def getScope(scopeName: String): mutable.Map[String, Any] = {
+      if(isException(0).asInstanceOf[Boolean]){
+        return exceptionMap(scopeName)
+      }
       scopeMap(scopeName)
     }
 
@@ -965,7 +994,14 @@ object SetTheoryDSL:
   println("***Welcome to my Set Theory DSL!***")
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
-  
+  Assign(Variable(Value("var")), Value(1)).eval
+  println(
+    IF(
+      condition = Check(Variable(Value("var")),Value(1)),
+      thenClause = Value("True"),
+      elseClause = Value("False")
+    ).eval
+  )
   Value(1).printScope("default")
   Value(1).printClasses
   Value(1).printInterfaces

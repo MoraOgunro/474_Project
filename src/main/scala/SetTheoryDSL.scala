@@ -62,6 +62,7 @@ object SetTheoryDSL:
     case AbstractClassDef(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())
     case InterfaceDecl(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())
     case IF(condition: Any, thenClause: SetExp, elseClause: SetExp = NoneCase())
+    case ExceptionClassDef(exceptionClassName: String)
 
     def eval: BasicType =
       this match {
@@ -554,7 +555,11 @@ object SetTheoryDSL:
               return elseClause.eval
             }
           }
-
+        case ExceptionClassDef(exceptionClassName: String) => {
+          val newException = mutable.Map[String, Any]("reason" -> "")
+          exceptionMap(exceptionClassName) = newException
+          Value(1)
+        }
         /** NoneCase case used by various expressions
          *
          * return None
@@ -994,13 +999,9 @@ object SetTheoryDSL:
   println("***Welcome to my Set Theory DSL!***")
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
-  Assign(Variable(Value("var")), Value(1)).eval
+  //Assign(Variable(Value("var")), Value(1)).eval
   println(
-    IF(
-      condition = Check(Variable(Value("var")),Value(1)),
-      thenClause = Value("True"),
-      elseClause = Value("False")
-    ).eval
+    ExceptionClassDef("myException").eval
   )
   Value(1).printScope("default")
   Value(1).printClasses

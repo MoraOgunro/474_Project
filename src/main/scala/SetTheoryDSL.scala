@@ -63,6 +63,7 @@ object SetTheoryDSL:
     case InterfaceDecl(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())
     case IF(condition: Any, thenClause: SetExp, elseClause: SetExp = NoneCase())
     case ExceptionClassDef(exceptionClassName: String)
+    case CatchException(ExceptionClassName: String, expressions: SetExp*)
 
     def eval: BasicType =
       this match {
@@ -560,6 +561,9 @@ object SetTheoryDSL:
           exceptionMap(exceptionClassName) = newException
           Value(1)
         }
+        case CatchException(exceptionClassName, expressions*) =>{
+          val catchException = findCatch(expressions)
+        }
         /** NoneCase case used by various expressions
          *
          * return None
@@ -568,6 +572,14 @@ object SetTheoryDSL:
           None
       }
 
+    def findCatch(expressions: Seq[SetExp]): SetExp = {
+      expressions.foreach(exp => {
+        if (classOf[CatchException].isInstance(exp)) {
+          return exp
+        }
+      })
+      return NoneCase()
+    }
     /** builds a new class tha inherits from another
      *
      * param parentClass the variable name of the parent class

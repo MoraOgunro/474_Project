@@ -64,6 +64,8 @@ object SetTheoryDSL:
     case IF(condition: Any, thenClause: SetExp, elseClause: SetExp = NoneCase())
     case ExceptionClassDef(exceptionClassName: String)
     case CatchException(ExceptionClassName: String, expressions: SetExp*)
+    case ThrowException(someExceptionClassName: String, reasonText: String)
+    case Catch(storageOfException: String, expressions: SetExp*)
 
     def eval: BasicType =
       this match {
@@ -559,10 +561,12 @@ object SetTheoryDSL:
         case ExceptionClassDef(exceptionClassName: String) => {
           val newException = mutable.Map[String, Any]("reason" -> "")
           exceptionMap(exceptionClassName) = newException
-          Value(1)
         }
         case CatchException(exceptionClassName, expressions*) =>{
           val catchException = findCatch(expressions)
+        }
+        case ThrowException(someExceptionClassName: String, reasonText: String) =>{
+          
         }
         /** NoneCase case used by various expressions
          *

@@ -564,6 +564,15 @@ object SetTheoryDSL:
         }
         case CatchException(exceptionClassName, expressions*) =>{
           val catchException = findCatch(expressions)
+          val size = expressions.size
+          val i = Array(0)
+
+          val curExpression : Array[SetExp] = Array(expressions.head)
+          while(i(0) < size && !classOf[ThrowException].isInstance(curExpression)) {
+            curExpression(0) = expressions(i(0))
+            curExpression.head.eval
+            i(0) += 1
+          }
         }
         case ThrowException(someExceptionClassName: String, reasonText: String) =>{
           
@@ -1016,8 +1025,9 @@ object SetTheoryDSL:
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
   //Assign(Variable(Value("var")), Value(1)).eval
-  println(
-    ExceptionClassDef("myException").eval
+  ExceptionClassDef("myException").eval
+  CatchException("myException",
+
   )
   Value(1).printScope("default")
   Value(1).printClasses

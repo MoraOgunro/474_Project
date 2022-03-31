@@ -557,22 +557,21 @@ object SetTheoryDSL:
           if(classOf[SetExp].isInstance(condition)) {
             //implement IF on SetExp
             if (condition.asInstanceOf[SetExp].eval.asInstanceOf[Boolean]) {
-              return thenClause.eval
+              thenClause.eval
             } else if (elseClause != NoneCase()) { // If the elseClause exists
               return elseClause.eval
             }
           }else{ // If the condition was not a SetExp
             if (condition.asInstanceOf[Boolean]) {
-              return thenClause.eval
+              thenClause.eval
             } else if (elseClause != NoneCase()) {
               return elseClause.eval
             }
           }
-        case ExceptionClassDef(exceptionClassName: String) => {
+        case ExceptionClassDef(exceptionClassName: String) =>
           val newException = mutable.Map[String, Any]("Reason" -> "")
           exceptionMap(exceptionClassName) = newException
-        }
-        case CatchException(exceptionClassName, expressions*) =>{
+        case CatchException(exceptionClassName, expressions*) =>
           val catchException = findCatch(expressions)
           val size = expressions.size
           val i = Array(0)
@@ -588,21 +587,18 @@ object SetTheoryDSL:
             curExpression(0).eval
             catchException.eval
           }
-
-        }
-        case ThrowException(someExceptionClassName: String, reasonText: String) =>{
+        case ThrowException(someExceptionClassName: String, reasonText: String) =>
           isException(0) = true
           isException(1) = someExceptionClassName
           exceptionMap(someExceptionClassName)("Reason") = reasonText
-        }
-        case Catch(expressions*) =>{
+        case Catch(expressions*) =>
           currentScopeName(0)
           expressions.foreach(exp =>{
             exp.eval
           })
           isException(0) = false
           isException(1) = ""
-        }
+
         /** NoneCase case used by various expressions
          *
          * return None
@@ -617,7 +613,7 @@ object SetTheoryDSL:
           return exp
         }
       })
-      return NoneCase()
+      NoneCase()
     }
     /** builds a new class tha inherits from another
      *

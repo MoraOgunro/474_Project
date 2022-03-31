@@ -65,7 +65,7 @@ object SetTheoryDSL:
     case ExceptionClassDef(exceptionClassName: String)
     case CatchException(ExceptionClassName: String, expressions: SetExp*)
     case ThrowException(someExceptionClassName: String, reasonText: String)
-    case Catch(storageOfException: String, expressions: SetExp*)
+    case Catch(expressions: SetExp*)
 
     def eval: BasicType =
       this match {
@@ -90,14 +90,21 @@ object SetTheoryDSL:
             /** using currentScopeName to retrieve the appropriate variable bindings
              * scopeMap returns a map of variables, which is used to find the value of variable n
              */
-            (n, scopeMap(currentScopeName(0))(n))
+            if (isException(0).asInstanceOf[Boolean]){
+
+              (n, exceptionMap(isException(1).asInstanceOf[String])(n))
+            }else{
+              (n, scopeMap(currentScopeName(0))(n))
+            }
           } catch {
             /**
              * The variable n does not exist. Return a tuple containing the variable name and None
              */
             case e: NoSuchElementException =>
-
-              if (!isObject(0).asInstanceOf[Boolean]) {
+              if (isException(0).asInstanceOf[Boolean]){
+                println(s"No variable $n exists within exception ${isException(1)}")
+              }
+              else if (!isObject(0).asInstanceOf[Boolean]) {
                 println(s"No variable $n exists within scope ${currentScopeName(0)}")
               }
               (n, None)
@@ -162,9 +169,12 @@ object SetTheoryDSL:
               "public"
             }
             getObject(getScope(currentScopeName(0)),isObject(1).asInstanceOf[String])(access_modifier).asInstanceOf[mutable.Map[String, Any]]
+          } else if(isException(0).asInstanceOf[Boolean]) {
+            exceptionMap(isException(1).asInstanceOf[String])
           } else {
             getScope(currentScopeName(0))
           }
+
           /** variable info contains the tuple evaluation of the name variable */
           val variableInfo = name.eval.asInstanceOf[(String, BasicType)]
 
@@ -559,7 +569,7 @@ object SetTheoryDSL:
             }
           }
         case ExceptionClassDef(exceptionClassName: String) => {
-          val newException = mutable.Map[String, Any]("reason" -> "")
+          val newException = mutable.Map[String, Any]("Reason" -> "")
           exceptionMap(exceptionClassName) = newException
         }
         case CatchException(exceptionClassName, expressions*) =>{
@@ -568,14 +578,30 @@ object SetTheoryDSL:
           val i = Array(0)
 
           val curExpression : Array[SetExp] = Array(expressions.head)
-          while(i(0) < size && !classOf[ThrowException].isInstance(curExpression)) {
-            curExpression(0) = expressions(i(0))
+          while(i(0) < size && !classOf[ThrowException].isInstance(curExpression(0))) {
             curExpression.head.eval
             i(0) += 1
+            curExpression(0) = expressions(i(0))
           }
+
+          if(classOf[ThrowException].isInstance(curExpression(0))){
+            curExpression(0).eval
+            catchException.eval
+          }
+
         }
         case ThrowException(someExceptionClassName: String, reasonText: String) =>{
-          
+          isException(0) = true
+          isException(1) = someExceptionClassName
+          exceptionMap(someExceptionClassName)("Reason") = reasonText
+        }
+        case Catch(expressions*) =>{
+          currentScopeName(0)
+          expressions.foreach(exp =>{
+            exp.eval
+          })
+          isException(0) = false
+          isException(1) = ""
         }
         /** NoneCase case used by various expressions
          *
@@ -587,7 +613,7 @@ object SetTheoryDSL:
 
     def findCatch(expressions: Seq[SetExp]): SetExp = {
       expressions.foreach(exp => {
-        if (classOf[CatchException].isInstance(exp)) {
+        if (classOf[Catch].isInstance(exp)) {
           return exp
         }
       })

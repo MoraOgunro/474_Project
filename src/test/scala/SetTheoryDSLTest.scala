@@ -40,6 +40,12 @@ class SetTheoryDSLTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
         field = Field(Value(("f", "public"))),
         constructor = Constructor(Method("initialMethod", NoneCase(), "private"))
       ),
+      ThrowException("myException","I want to throw an exception!"),
+      Catch(
+        Value("In Catch"),
+        Variable(Value("storageOfException")),
+        Assign(Variable(Value("var")), Variable(Value("Reason")))
+      ),
       Value(5)
     ).eval
   }

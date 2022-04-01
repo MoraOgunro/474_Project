@@ -13,6 +13,7 @@ import scala.collection.mutable
 class SetTheoryDSLTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
   behavior of "my set theory DSL"
   before {
+    val exceptions = exceptionMap
     ClassDef(Value("concreteClass"),
       field = Field(Value(("aField1", "private"))),
       constructor = Constructor(Method("method", Value(1), "private"))).eval
@@ -26,10 +27,23 @@ class SetTheoryDSLTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
         field = Field(Value(("iField1", "public"))),
         constructor = Constructor(Method("iMethod",NoneCase(),"public"))).eval
   }
+  "IF" should "do it" in {
+    IF(true,
+      thenClause = Assign(Variable(Value("a")), Value(1)),
+      elseClause = Assign(Variable(Value("a")), Value(2))
+    ).eval
 
-  "ExceptionClassDef" should "do it" in {
+    val scope = Value(1).getScope("default")
+    scope.contains("a") shouldBe(true)
+    val new_set = scope("a").asInstanceOf[mutable.HashSet[Any]]
+    new_set.contains(1) shouldBe(true)
+
+  }
+  "ExceptionClassDef" should "Define an exception" in {
     ExceptionClassDef("myException").eval
     exceptionMap.contains("myException") shouldBe(true)
+    val exception = exceptionMap("myException")
+    exception.contains("Reason") shouldBe(true)
   }
 
   "CatchException" should "do it" in {
@@ -48,6 +62,14 @@ class SetTheoryDSLTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
       ),
       Value(5)
     ).eval
+  }
+  "ThrowException" should "do it" in {
+    ExceptionClassDef("myException").eval
+    exceptionMap.contains("myException") shouldBe(true)
+  }
+  "Catch" should "do it" in {
+    ExceptionClassDef("myException").eval
+    exceptionMap.contains("myException") shouldBe(true)
   }
 }
 

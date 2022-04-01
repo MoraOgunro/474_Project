@@ -1047,10 +1047,6 @@ object SetTheoryDSL:
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
   //Assign(Variable(Value("var")), Value(1)).eval
-  ExceptionClassDef("myException").eval
-  CatchException("myException",
-
-  )
   Value(1).printScope("default")
   Value(1).printClasses
   Value(1).printInterfaces

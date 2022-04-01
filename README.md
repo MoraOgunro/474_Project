@@ -23,7 +23,47 @@ Scope("default", SetExp)
 ```
 See the Syntax for Scope for a more detailed example.
 
+**IF(condition: Any, thenClause: SetExp, elseClause: SetExp = NoneCase())**
+
+*elseClause : SetExp (optional)
+```
+IF(true,
+      thenClause = Assign(Variable(Value("a")), Value(1)),
+      elseClause = Assign(Variable(Value("a")), Value(2))
+).eval
+  
+  OR
+  
+IF(true,
+  thenClause = Assign(Variable(Value("a")), Value(1)),
+).eval
+```
+**ExceptionClassDef(condition: Any, thenClause: SetExp, elseClause: SetExp = NoneCase())**
+
+description
+```
+
+```
+**CatchException(condition: Any, thenClause: SetExp, elseClause: SetExp = NoneCase())**
+
+description
+```
+
+```
+**ThrowException(condition: Any, thenClause: SetExp, elseClause: SetExp = NoneCase())**
+
+description
+```
+
+```
+**Catch(condition: Any, thenClause: SetExp, elseClause: SetExp = NoneCase())**
+
+description
+```
+
+```
 **AbstractClassDef(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())**
+
 
 At least one method must be abstract. To make a method abstract, the expression must be "NoneCase()" or None.
 ```

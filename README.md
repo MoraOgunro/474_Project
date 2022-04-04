@@ -38,29 +38,56 @@ IF(true,
   thenClause = Assign(Variable(Value("a")), Value(1)),
 ).eval
 ```
-**ExceptionClassDef(condition: Any, thenClause: SetExp, elseClause: SetExp = NoneCase())**
+**ExceptionClassDef(exceptionClassName: String)**
 
-description
+Constructs an empty exception class.
 ```
-
+ExceptionClassDef("myException").eval
 ```
-**CatchException(condition: Any, thenClause: SetExp, elseClause: SetExp = NoneCase())**
+**CatchException(ExceptionClassName: String, expressions: SetExp)**
 
-description
+Evaluates expression until an exception is discovered.
 ```
-
+CatchException("myException",
+      Value(1),
+      AbstractClassDef(Value("myClass"),
+        field = Field(Value(("f", "public"))),
+        constructor = Constructor(Method("initialMethod", NoneCase(), "private"))
+      ),
+      Value(5)
+    ).eval
 ```
-**ThrowException(condition: Any, thenClause: SetExp, elseClause: SetExp = NoneCase())**
-
-description
+Detailed Example with exceptions:
 ```
-
+CatchException("myException",
+      Value(1),
+      AbstractClassDef(Value("myClass"),
+        field = Field(Value(("f", "public"))),
+        constructor = Constructor(Method("initialMethod", NoneCase(), "private"))
+      ),
+      ThrowException("myException","I want to throw an exception!"),
+      Catch(
+        Variable(Value("storageOfException")),
+        Assign(Variable(Value("var")), Variable(Value("Reason")))
+      ),
+      Value(5)
+    ).eval
 ```
-**Catch(condition: Any, thenClause: SetExp, elseClause: SetExp = NoneCase())**
+**ThrowException(someExceptionClassName: String, reasonText: String)**
 
-description
+Throws an exception and sets the reason within an exception class.
 ```
+ThrowException("myException", "TEST").eval
+```
+**Catch(expressions: SetExp)**
 
+Catch contains a sequence of expressions which will be evaluated when an exception is encountered. The expressions run within the exception's scope.
+```
+Catch(
+      Value("In Catch"),
+      Variable(Value("storageOfException")),
+      Assign(Variable(Value("var")), Variable(Value("Reason")))
+    ).eval
 ```
 **AbstractClassDef(name: SetExp, field: SetExp = NoneCase(), constructor: SetExp = NoneCase())**
 

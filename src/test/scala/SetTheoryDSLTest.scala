@@ -12,22 +12,8 @@ import scala.collection.mutable
 
 class SetTheoryDSLTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
   behavior of "my set theory DSL"
-  before {
-    val exceptions = exceptionMap
-    ClassDef(Value("concreteClass"),
-      field = Field(Value(("aField1", "private"))),
-      constructor = Constructor(Method("method", Value(1), "private"))).eval
 
-    AbstractClassDef(Value("abstractClass"),
-      field = Field(Value(("aField1", "private"))),
-      constructor = Constructor(Method("initialMethod", NoneCase(), "private"))).eval
-
-    InterfaceDecl(
-        name = Value("interface1"),
-        field = Field(Value(("iField1", "public"))),
-        constructor = Constructor(Method("iMethod",NoneCase(),"public"))).eval
-  }
-  "IF" should "do it" in {
+  "IF" should "Evaluate an IF statement" in {
     IF(true,
       thenClause = Assign(Variable(Value("a")), Value(1)),
       elseClause = Assign(Variable(Value("a")), Value(2))
@@ -46,7 +32,7 @@ class SetTheoryDSLTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
     exception.contains("Reason") shouldBe(true)
   }
 
-  "CatchException" should "do it" in {
+  "CatchException" should "Evaluate expressions until an exception is discovered." in {
     ExceptionClassDef("myException").eval
     CatchException("myException",
       Value(1),
@@ -63,13 +49,28 @@ class SetTheoryDSLTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
       Value(5)
     ).eval
   }
-  "ThrowException" should "do it" in {
+  "ThrowException" should "Throw an exception and set the reason within an exception class" in {
     ExceptionClassDef("myException").eval
+    ThrowException("myException", "TEST").eval
     exceptionMap.contains("myException") shouldBe(true)
+    val exception = exceptionMap("myException")
+    exception("Reason") shouldBe("TEST")
   }
-  "Catch" should "do it" in {
+  "Catch" should "Catch an exception by running the expressions within itself" in {
     ExceptionClassDef("myException").eval
     exceptionMap.contains("myException") shouldBe(true)
+    val exception = exceptionMap("myException")
+    ThrowException("myException", "TEST").eval
+
+    Catch(
+      Value("In Catch"),
+      Variable(Value("storageOfException")),
+      Assign(Variable(Value("var")), Variable(Value("Reason")))
+    ).eval
+
+    exception.contains("var") shouldBe(true)
+    exception("var") shouldBe(mutable.HashSet("TEST"))
+
   }
 }
 

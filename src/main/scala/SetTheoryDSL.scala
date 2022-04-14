@@ -1,3 +1,4 @@
+import SetTheoryDSL.SetExp
 import SetTheoryDSL.SetExp.*
 
 import scala.collection.immutable.ArraySeq
@@ -8,9 +9,17 @@ import scala.collection.mutable.{Map, Set}
   Mora Ogunro
 */
 
+//class Program(expressions: SetExp*){
+//  def evaluate(): Seq[SetExp] = {
+//    expressions
+//  }
+//}
+class Program(expression: SetExp = NoneCase()){
+  override def toString() : String = {
+    return "Program is partially evaluated: " + expression.toString
+  }
+}
 /** SetTheoryDSL provides a set theory language for the user to perform actions on sets */
-
-
 object SetTheoryDSL:
   type BasicType = Any
   /** variableBinding is the default scope. */
@@ -40,6 +49,7 @@ object SetTheoryDSL:
   
 
   enum SetExp:
+    case Expression(input: SetExp)
     case Value(input: BasicType)
     case Variable(name: SetExp)
     case Check(name: SetExp, input: SetExp)
@@ -67,8 +77,14 @@ object SetTheoryDSL:
     case ThrowException(someExceptionClassName: String, reasonText: String)
     case Catch(expressions: SetExp*)
 
-    def eval: BasicType =
+    def eval: BasicType | Program =
       this match {
+        case Expression(input) => {
+          val partial: Array[Boolean] = Array(false)
+          
+          new Program(input)
+        }
+
         /** Returns the value that was passed into it
          *
          * param i a primitive value
@@ -1047,6 +1063,7 @@ object SetTheoryDSL:
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
   //Assign(Variable(Value("var")), Value(1)).eval
+  println(Expression(Value(1)).eval)
   Value(1).printScope("default")
   Value(1).printClasses
   Value(1).printInterfaces

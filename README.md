@@ -1,4 +1,4 @@
-# Mora Ogunro - 474 HW 4
+# Mora Ogunro - 474 HW 5
 # How to run the program
 1. Download the files and extract them
 2. navigate to 474_HW1_SBT/src/main/scala and open SetTheoryDSL.scala in a text editor of your choice

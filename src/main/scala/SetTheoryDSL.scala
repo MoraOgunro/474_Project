@@ -623,6 +623,22 @@ object SetTheoryDSL:
           None
       }
 
+    /**
+     *
+     * @param f the function to be applied
+     * @return an ArraySeq of the mapped expressions
+     */
+    def map(f: SetExp => SetExp): ArraySeq[SetExp] = {
+      val expression = this
+      val mappedList : ArraySeq[SetExp] = ArraySeq.empty;
+      val expressionList: ArraySeq[SetExp] = expression.asInstanceOf[ArraySeq[SetExp]]
+      expressionList.foreach( elem => {
+        mappedList.appended(f(elem))
+      })
+
+      mappedList
+    }
+
     def findCatch(expressions: Seq[SetExp]): SetExp = {
       expressions.foreach(exp => {
         if (classOf[Catch].isInstance(exp)) {
@@ -1063,6 +1079,7 @@ object SetTheoryDSL:
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
   //Assign(Variable(Value("var")), Value(1)).eval
+  //Value(1).map()
   println(Expression(Value(1)).eval)
   Value(1).printScope("default")
   Value(1).printClasses

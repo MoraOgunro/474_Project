@@ -3,27 +3,22 @@ import SetTheoryDSL.SetExp.*
 
 import scala.collection.immutable.ArraySeq
 import scala.collection.{immutable, mutable}
-import scala.collection.mutable.{Map, Set}
+import scala.collection.mutable.{ArrayBuffer, Map, Set}
 
 /*
   Mora Ogunro
 */
 
-//class Program(expressions: SetExp*){
-//  def evaluate(): Seq[SetExp] = {
-//    expressions
-//  }
-//}
 class Program(expression: SetExp = NoneCase()){
   override def toString() : String = {
     return "Program is partially evaluated: " + expression.toString
   }
 }
 /** SetTheoryDSL provides a set theory language for the user to perform actions on sets */
-object SetTheoryDSL:
+object SetTheoryDSL extends Program:
   type BasicType = Any
   /** variableBinding is the default scope. */
-  val variableBinding: mutable.Map[String, Any] = mutable.Map[String, Any]()
+  val variableBinding: mutable.Map[String, Any] = mutable.Map[String, Any]("x"->1)
   /** scopeMap is a collection of variable scopes */
   val scopeMap: mutable.Map[String, mutable.Map[String, Any]] = mutable.Map[String, mutable.Map[String, Any]]("default" -> variableBinding)
   /** the scope that is currently active */
@@ -76,13 +71,16 @@ object SetTheoryDSL:
     case CatchException(ExceptionClassName: String, expressions: SetExp*)
     case ThrowException(someExceptionClassName: String, reasonText: String)
     case Catch(expressions: SetExp*)
+    case GreaterThan(a: SetExp, b: SetExp)
+    case Add(x: SetExp, y: SetExp)
 
     def eval: BasicType | Program =
       this match {
+        /**
+         * returns partially evaluated program if the expression cannot be fully evaluated
+         */
         case Expression(input) => {
-          val partial: Array[Boolean] = Array(false)
-          
-          new Program(input)
+          optimize(input)
         }
 
         /** Returns the value that was passed into it
@@ -615,6 +613,19 @@ object SetTheoryDSL:
           isException(0) = false
           isException(1) = ""
 
+        case GreaterThan(a,b) => {
+          val resultA = a.eval.asInstanceOf[Int]
+          val resultB = b.eval.asInstanceOf[Int]
+          if(resultA > resultB){
+            return true
+          }else{
+            return false
+          }
+        }
+        case Add(x,y) =>
+          x.eval.asInstanceOf[Int] + y.eval.asInstanceOf[Int]
+
+
         /** NoneCase case used by various expressions
          *
          * return None
@@ -622,6 +633,33 @@ object SetTheoryDSL:
         case NoneCase() =>
           None
       }
+
+    def optimize(exp: SetExp): Any = {
+      val firstPass = optimizeVariables(exp)
+    }
+    def optimizeVariables(exp: SetExp): Array[Any] = {
+      val newExpression = ArrayBuffer.empty[Any]
+
+      val parameters = exp match {
+        case IF(condition,thenClause,elseClause) => ArraySeq(condition,thenClause,elseClause)
+        case Add(x,y) => ArraySeq(x,y)
+      }
+      parameters.foreach(elem => {
+        val newParameter = Array[Any](elem)
+
+        if(classOf[Variable].isInstance(elem)){
+          val result = elem.asInstanceOf[Variable].eval
+          val value = result.asInstanceOf[(String,Any)]._2
+          val name = result.asInstanceOf[(String,Any)]._1
+
+          if(value != None){
+            newParameter(0) = value
+          }
+        }
+          newExpression += newParameter(0)
+      })
+      newExpression.toArray
+    }
 
     /**
      *
@@ -1080,7 +1118,7 @@ object SetTheoryDSL:
   // Place your expressions here. View README.md for syntax documentation
   //Assign(Variable(Value("var")), Value(1)).eval
   //Value(1).map()
-  println(Expression(Value(1)).eval)
+  Expression(Add(Variable(Value("x")), Value(3))).eval
   Value(1).printScope("default")
   Value(1).printClasses
   Value(1).printInterfaces

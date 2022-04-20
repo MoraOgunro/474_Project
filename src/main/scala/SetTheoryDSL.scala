@@ -1,4 +1,4 @@
-import SetTheoryDSL.SetExp
+import SetTheoryDSL.{SetExp, optimizeIF}
 import SetTheoryDSL.SetExp.*
 
 import scala.collection.immutable.ArraySeq
@@ -9,16 +9,75 @@ import scala.collection.mutable.{ArrayBuffer, Map, Set}
   Mora Ogunro
 */
 
-class Program(expression: SetExp = NoneCase()){
-  override def toString() : String = {
-    return "Program is partially evaluated: " + expression.toString
+class Program() {
+
+  /**
+   *
+   * @param expression
+   * @return
+   */
+  def optimizeIF(expression: IF): SetExp = {
+    val condition = expression.condition
+    val thenClause = expression.thenClause
+    val elseClause = expression.elseClause
+
+    if (classOf[SetExp].isInstance(condition)) {
+      //implement IF on SetExp
+      if (condition.asInstanceOf[SetExp].eval.asInstanceOf[Boolean]) {
+        return thenClause
+      } else if (elseClause != NoneCase()) { // If the elseClause exists
+        return elseClause
+      }
+    } else { // If the condition was not a SetExp
+      if (condition.asInstanceOf[Boolean]) {
+        return thenClause
+      } else if (elseClause != NoneCase()) {
+        return elseClause
+      }
+    }
+
+
+    expression
+  }
+
+  /**
+   *
+   * @param expression
+   * @return
+   */
+  def optimizeUnion(expression: Union): Union = {
+
+
+    expression
+  }
+
+  def optimizeSetDifference(expression: SetDifference): SetDifference = {
+
+    expression
+  }
+
+  /**
+   *
+   * @param f the function to be applied
+   * @return an ArraySeq of the mapped expressions
+   */
+  def map(f: SetExp => SetExp): ArraySeq[SetExp] = {
+    val expression = this
+    val mappedList: ArraySeq[SetExp] = ArraySeq.empty;
+    val expressionList: ArraySeq[SetExp] = expression.asInstanceOf[ArraySeq[SetExp]]
+    expressionList.foreach(elem => {
+      mappedList.appended(f(elem))
+    })
+
+    mappedList
   }
 }
+
 /** SetTheoryDSL provides a set theory language for the user to perform actions on sets */
-object SetTheoryDSL extends Program:
+object SetTheoryDSL extends Program :
   type BasicType = Any
   /** variableBinding is the default scope. */
-  val variableBinding: mutable.Map[String, Any] = mutable.Map[String, Any]("x"->1)
+  val variableBinding: mutable.Map[String, Any] = mutable.Map[String, Any]("x" -> 1)
   /** scopeMap is a collection of variable scopes */
   val scopeMap: mutable.Map[String, mutable.Map[String, Any]] = mutable.Map[String, mutable.Map[String, Any]]("default" -> variableBinding)
   /** the scope that is currently active */
@@ -32,7 +91,7 @@ object SetTheoryDSL extends Program:
   /** the collection of interfaces that have been created */
   val interfaceMap: mutable.Map[String, mutable.Map[String, Any]] = mutable.Map[String, mutable.Map[String, Any]]()
   /** a hashmap denoting child->parent relationships */
-  val relationshipMap: mutable.Map[String, String] = mutable.Map[String,String]()
+  val relationshipMap: mutable.Map[String, String] = mutable.Map[String, String]()
   /** flag used for creating Classes */
   val isClassDef: Array[Boolean] = Array(false)
   /** flag for exceptions */
@@ -41,9 +100,9 @@ object SetTheoryDSL extends Program:
   val isExceptionDef: Array[Boolean] = Array(false)
   /** a collection of all exceptions which have been defined */
   val exceptionMap: mutable.Map[String, mutable.Map[String, Any]] = mutable.Map[String, mutable.Map[String, Any]]()
-  
 
-  enum SetExp:
+
+  enum SetExp extends Program :
     case Expression(input: SetExp)
     case Value(input: BasicType)
     case Variable(name: SetExp)
@@ -73,6 +132,7 @@ object SetTheoryDSL extends Program:
     case Catch(expressions: SetExp*)
     case GreaterThan(a: SetExp, b: SetExp)
     case Add(x: SetExp, y: SetExp)
+    case Multiply(x: SetExp, y: SetExp)
 
     def eval: BasicType | Program =
       this match {
@@ -104,10 +164,10 @@ object SetTheoryDSL extends Program:
             /** using currentScopeName to retrieve the appropriate variable bindings
              * scopeMap returns a map of variables, which is used to find the value of variable n
              */
-            if (isException(0).asInstanceOf[Boolean]){
+            if (isException(0).asInstanceOf[Boolean]) {
 
               (n, exceptionMap(isException(1).asInstanceOf[String])(n))
-            }else{
+            } else {
               (n, scopeMap(currentScopeName(0))(n))
             }
           } catch {
@@ -115,7 +175,7 @@ object SetTheoryDSL extends Program:
              * The variable n does not exist. Return a tuple containing the variable name and None
              */
             case e: NoSuchElementException =>
-              if (isException(0).asInstanceOf[Boolean]){
+              if (isException(0).asInstanceOf[Boolean]) {
                 println(s"No variable $n exists within exception ${isException(1)}")
               }
               else if (!isObject(0).asInstanceOf[Boolean]) {
@@ -130,7 +190,7 @@ object SetTheoryDSL extends Program:
          * param input the object to be tested
          * return true if the input exists in a set and false if not.
          */
-        case Check(name, input)  =>
+        case Check(name, input) =>
 
           /** name is a variable. Retrieve the evaluation of this variable, which is a tuple. */
           val result = name.eval.asInstanceOf[(String, BasicType)]
@@ -182,8 +242,8 @@ object SetTheoryDSL extends Program:
             } else {
               "public"
             }
-            getObject(getScope(currentScopeName(0)),isObject(1).asInstanceOf[String])(access_modifier).asInstanceOf[mutable.Map[String, Any]]
-          } else if(isException(0).asInstanceOf[Boolean]) {
+            getObject(getScope(currentScopeName(0)), isObject(1).asInstanceOf[String])(access_modifier).asInstanceOf[mutable.Map[String, Any]]
+          } else if (isException(0).asInstanceOf[Boolean]) {
             exceptionMap(isException(1).asInstanceOf[String])
           } else {
             getScope(currentScopeName(0))
@@ -398,6 +458,7 @@ object SetTheoryDSL extends Program:
           relationshipMap.put(className, "None")
           isClassDef(0) = false
           newClass
+
         /** Defines an Abstract Class
          *
          * param name the variable name of the class
@@ -426,7 +487,7 @@ object SetTheoryDSL extends Program:
           }
           // place class within scope
           val result = constructor_helper(className, className, newClass("constructor").asInstanceOf[Constructor], newClass("fields").asInstanceOf[ArraySeq[SetExp]])
-          if(!checkAbstractClass(result)){
+          if (!checkAbstractClass(result)) {
             throw new AbstractMethodError("Abstract classes must contain at least one abstract method")
           }
           result.put("classType", "abstract")
@@ -434,6 +495,7 @@ object SetTheoryDSL extends Program:
           relationshipMap.put(className, "None")
           isClassDef(0) = false
           newClass
+
         /** Defines an Interface
          *
          * param name the variable name of the interface
@@ -464,7 +526,7 @@ object SetTheoryDSL extends Program:
           }
           // place class within scope
           val result = constructor_helper(interfaceName, interfaceName, newInterface("constructor").asInstanceOf[Constructor], newInterface("fields").asInstanceOf[ArraySeq[SetExp]])
-          if(!checkInterface(result, interfaceName)){
+          if (!checkInterface(result, interfaceName)) {
             throw new Error("Interfaces must not contain any implementations or private fields.")
           }
           result.put("classType", "interface")
@@ -517,7 +579,7 @@ object SetTheoryDSL extends Program:
          */
         case NewObject(className, objectName) =>
           val classType = getClass(className)("classType")
-          if(classType == "abstract"){
+          if (classType == "abstract") {
             throw new Error("Abstract Classes cannot be instantiated.")
           }
           val constructor = getClass(className)("constructor")
@@ -564,18 +626,19 @@ object SetTheoryDSL extends Program:
           method.eval
           isObject(0) = false
           isObject(1) = ""
-        /***/
+
+        /** */
         case IF(condition, thenClause, elseClause) =>
           // First check if the condition is a SetExp
           val scope = getScope(currentScopeName(0))
-          if(classOf[SetExp].isInstance(condition)) {
+          if (classOf[SetExp].isInstance(condition)) {
             //implement IF on SetExp
             if (condition.asInstanceOf[SetExp].eval.asInstanceOf[Boolean]) {
               thenClause.eval
             } else if (elseClause != NoneCase()) { // If the elseClause exists
               return elseClause.eval
             }
-          }else{ // If the condition was not a SetExp
+          } else { // If the condition was not a SetExp
             if (condition.asInstanceOf[Boolean]) {
               thenClause.eval
             } else if (elseClause != NoneCase()) {
@@ -590,14 +653,14 @@ object SetTheoryDSL extends Program:
           val size = expressions.size
           val i = Array(0)
 
-          val curExpression : Array[SetExp] = Array(expressions.head)
-          while(i(0) < size && !classOf[ThrowException].isInstance(curExpression(0))) {
+          val curExpression: Array[SetExp] = Array(expressions.head)
+          while (i(0) < size && !classOf[ThrowException].isInstance(curExpression(0))) {
             curExpression.head.eval
             i(0) += 1
             curExpression(0) = expressions(i(0))
           }
 
-          if(classOf[ThrowException].isInstance(curExpression(0))){
+          if (classOf[ThrowException].isInstance(curExpression(0))) {
             curExpression(0).eval
             catchException.eval
           }
@@ -607,24 +670,24 @@ object SetTheoryDSL extends Program:
           exceptionMap(someExceptionClassName)("Reason") = reasonText
         case Catch(expressions*) =>
           currentScopeName(0)
-          expressions.foreach(exp =>{
+          expressions.foreach(exp => {
             exp.eval
           })
           isException(0) = false
           isException(1) = ""
 
-        case GreaterThan(a,b) => {
+        case GreaterThan(a, b) => {
           val resultA = a.eval.asInstanceOf[Int]
           val resultB = b.eval.asInstanceOf[Int]
-          if(resultA > resultB){
+          if (resultA > resultB) {
             return true
-          }else{
+          } else {
             return false
           }
         }
-        case Add(x,y) =>
+        case Add(x, y) =>
           x.eval.asInstanceOf[Int] + y.eval.asInstanceOf[Int]
-
+        case Multiply(x, y) => x.eval.asInstanceOf[Int] * y.eval.asInstanceOf[Int]
 
         /** NoneCase case used by various expressions
          *
@@ -635,47 +698,17 @@ object SetTheoryDSL extends Program:
       }
 
     def optimize(exp: SetExp): Any = {
-      val firstPass = optimizeVariables(exp)
-    }
-    def optimizeVariables(exp: SetExp): Array[Any] = {
-      val newExpression = ArrayBuffer.empty[Any]
+      //      val parameters = exp match {
+      //        case IF(condition, thenClause, elseClause) => ArraySeq(condition, thenClause, elseClause)
+      //        case Add(x, y) => ArraySeq(x, y)
+      //      }
+      //
+      //      val firstPass = optimizeVariables(parameters)
+      //      val secondPass = optimizeExtractValues(firstPass)
+      //      val thirdPass = optimizeRemoveUnnecessaryIntegers(secondPass)
 
-      val parameters = exp match {
-        case IF(condition,thenClause,elseClause) => ArraySeq(condition,thenClause,elseClause)
-        case Add(x,y) => ArraySeq(x,y)
-      }
-      parameters.foreach(elem => {
-        val newParameter = Array[Any](elem)
-
-        if(classOf[Variable].isInstance(elem)){
-          val result = elem.asInstanceOf[Variable].eval
-          val value = result.asInstanceOf[(String,Any)]._2
-          val name = result.asInstanceOf[(String,Any)]._1
-
-          if(value != None){
-            newParameter(0) = value
-          }
-        }
-          newExpression += newParameter(0)
-      })
-      newExpression.toArray
     }
 
-    /**
-     *
-     * @param f the function to be applied
-     * @return an ArraySeq of the mapped expressions
-     */
-    def map(f: SetExp => SetExp): ArraySeq[SetExp] = {
-      val expression = this
-      val mappedList : ArraySeq[SetExp] = ArraySeq.empty;
-      val expressionList: ArraySeq[SetExp] = expression.asInstanceOf[ArraySeq[SetExp]]
-      expressionList.foreach( elem => {
-        mappedList.appended(f(elem))
-      })
-
-      mappedList
-    }
 
     def findCatch(expressions: Seq[SetExp]): SetExp = {
       expressions.foreach(exp => {
@@ -685,6 +718,7 @@ object SetTheoryDSL extends Program:
       })
       NoneCase()
     }
+
     /** builds a new class tha inherits from another
      *
      * param parentClass the variable name of the parent class
@@ -696,31 +730,32 @@ object SetTheoryDSL extends Program:
       val originalExpression = this
       /** getNewExpression combines the constructor and fields of the parent class and the child class */
 
-      val newExpression = if(classOf[ClassDef].isInstance(originalExpression)) {
+      val newExpression = if (classOf[ClassDef].isInstance(originalExpression)) {
         getNewExpression(originalExpression.asInstanceOf[ClassDef], parentClass)
-      }else if(classOf[InterfaceDecl].isInstance(originalExpression)){
+      } else if (classOf[InterfaceDecl].isInstance(originalExpression)) {
         //throw new Error("Interface cannot implement another interface.")
         getNewExpression(originalExpression.asInstanceOf[InterfaceDecl], parentClass)
-      }else{
+      } else {
         getNewExpression(originalExpression.asInstanceOf[AbstractClassDef], parentClass)
       }
       val className = newExpression._1
       val constructor = newExpression._2
       val fields = newExpression._3
       // Call ClassDef on the new fields and constructor
-      if(classOf[AbstractClassDef].isInstance(originalExpression)){
+      if (classOf[AbstractClassDef].isInstance(originalExpression)) {
         AbstractClassDef(className, fields, constructor).eval
-      }else if(classOf[InterfaceDecl].isInstance(originalExpression)){
+      } else if (classOf[InterfaceDecl].isInstance(originalExpression)) {
         InterfaceDecl(className, fields, constructor).eval
-      }else{
+      } else {
         ClassDef(className, fields, constructor).eval
       }
       relationshipMap.put(className.eval.asInstanceOf[String], parentClass)
-      if(getClass(parentClass)("classType") == "abstract"){
+      if (getClass(parentClass)("classType") == "abstract") {
         // check if the derived class is implemented properly
         checkAbstractImplementation(getClass(className.eval.asInstanceOf[String]), className.eval.asInstanceOf[String])
       }
     }
+
     /** implements an interface
      *
      * param parentInterface, the name of the interface to be implemented
@@ -732,40 +767,41 @@ object SetTheoryDSL extends Program:
       val originalExpression = this
       /** getNewExpression combines the constructor and fields of the parent class and the child class */
 
-      val newExpression = if(classOf[ClassDef].isInstance(originalExpression)) {
+      val newExpression = if (classOf[ClassDef].isInstance(originalExpression)) {
         getNewExpression(originalExpression.asInstanceOf[ClassDef], parentInterface)
-      }else if(classOf[InterfaceDecl].isInstance(originalExpression)){
+      } else if (classOf[InterfaceDecl].isInstance(originalExpression)) {
         throw new Error("Interface cannot implement another interface.")
         //getNewExpression(originalExpression.asInstanceOf[InterfaceDecl], parentInterface)
-      }else{
+      } else {
         getNewExpression(originalExpression.asInstanceOf[AbstractClassDef], parentInterface)
       }
       val className = newExpression._1
       val constructor = newExpression._2
       val fields = newExpression._3
       // Call ClassDef on the new fields and constructor
-      if(classOf[AbstractClassDef].isInstance(originalExpression)){
+      if (classOf[AbstractClassDef].isInstance(originalExpression)) {
         AbstractClassDef(className, fields, constructor).eval
-      }else if(classOf[InterfaceDecl].isInstance(originalExpression)){
+      } else if (classOf[InterfaceDecl].isInstance(originalExpression)) {
         InterfaceDecl(className, fields, constructor).eval
-      }else{
+      } else {
         ClassDef(className, fields, constructor).eval
       }
       relationshipMap.put(className.eval.asInstanceOf[String], parentInterface)
 
-        // check if the derived class is implemented properly
+      // check if the derived class is implemented properly
       checkInterfaceImplementation(getClass(className.eval.asInstanceOf[String]), className.eval.asInstanceOf[String])
 
 
     }
+
     /** detects cycles of inheritance */
-    def hasCycle(start: String) : Boolean = {
+    def hasCycle(start: String): Boolean = {
 
-      val visited : mutable.Set[Any] = mutable.Set()
-      val cur : Array[Any] = Array(start)
+      val visited: mutable.Set[Any] = mutable.Set()
+      val cur: Array[Any] = Array(start)
 
-      while(cur(0) != None && !visited.contains(cur(0))){
-        if(cur(0) == "None"){
+      while (cur(0) != None && !visited.contains(cur(0))) {
+        if (cur(0) == "None") {
           return false
         }
         visited.addOne(cur(0).asInstanceOf[String])
@@ -774,6 +810,7 @@ object SetTheoryDSL extends Program:
       true
     }
     // HELPER METHODS
+
     /** determines if an abstract class has been implemented correctly
      *
      * param derivedClass the subClass/subInterface
@@ -781,19 +818,19 @@ object SetTheoryDSL extends Program:
      *
      * returns true if valid, or error if invalid
      * */
-    def checkAbstractImplementation(derivedClass: mutable.Map[String,Any], className: String): Boolean ={
+    def checkAbstractImplementation(derivedClass: mutable.Map[String, Any], className: String): Boolean = {
       val classType: String = derivedClass("classType").asInstanceOf[String]
-      if(hasCycle(className)){
+      if (hasCycle(className)) {
         classMap.remove(className)
         relationshipMap.remove(className)
         throw new Error(s"There is a cycle of inheritance.")
       }
 
       val allMethodsAndFields = getAllMethodsAndFieldsAsList(derivedClass)
-      if(classType != "abstract"){
+      if (classType != "abstract") {
         // check that all methods are implemented
-        allMethodsAndFields.foreach( info => {
-          if(info._2 == NoneCase()) {
+        allMethodsAndFields.foreach(info => {
+          if (info._2 == NoneCase()) {
             classMap.remove(className)
             relationshipMap.remove(className)
             throw new AbstractMethodError("All abstract methods must be implemented in a concrete class")
@@ -803,6 +840,7 @@ object SetTheoryDSL extends Program:
 
       true
     }
+
     /** determines if an interface has been implemented correctly
      *
      * param derivedClass the subClass/subInterface
@@ -810,36 +848,36 @@ object SetTheoryDSL extends Program:
      *
      * returns true if valid, or error if invalid
      * */
-    def checkInterfaceImplementation(derivedClass: mutable.Map[String,Any], className: String): Boolean ={
+    def checkInterfaceImplementation(derivedClass: mutable.Map[String, Any], className: String): Boolean = {
       val classType: String = derivedClass("classType").asInstanceOf[String]
 
-      if(hasCycle(className)){
+      if (hasCycle(className)) {
         classMap.remove(className)
         relationshipMap.remove(className)
         throw new Error(s"There is a cycle of inheritance.")
       }
 
       val allMethodsAndFields = getAllMethodsAndFieldsAsList(derivedClass)
-      if(classType == "concrete"){
+      if (classType == "concrete") {
         // check that all methods are implemented
-        allMethodsAndFields.foreach( info => {
-          if(info._2 == NoneCase()){
+        allMethodsAndFields.foreach(info => {
+          if (info._2 == NoneCase()) {
             classMap.remove(className)
             relationshipMap.remove(className)
             throw new Error(s"All Interface methods must be implemented in a concrete class. $className has unimplemented method ${info._1}.")
           }
         })
-      }else if(classType == "interface"){
-        allMethodsAndFields.foreach( info => {
-          if(info._2 != None && info._2 != NoneCase()){
+      } else if (classType == "interface") {
+        allMethodsAndFields.foreach(info => {
+          if (info._2 != None && info._2 != NoneCase()) {
             classMap.remove(className)
             relationshipMap.remove(className)
             throw new Error(s"Interfaces must be completely abstract $className implements ${info._1}")
           }
         })
-      }else if(classType == "abstract"){
-        allMethodsAndFields.foreach( info => {
-          if(info._2 == None || info._2 == NoneCase()){
+      } else if (classType == "abstract") {
+        allMethodsAndFields.foreach(info => {
+          if (info._2 == None || info._2 == NoneCase()) {
             return true
           }
         })
@@ -851,6 +889,7 @@ object SetTheoryDSL extends Program:
 
       true
     }
+
     /** determines if an interface is valid
      *
      * param interface the interface
@@ -858,51 +897,55 @@ object SetTheoryDSL extends Program:
      *
      * returns true if valid, or error if invalid
      * */
-    def checkInterface(interface: mutable.Map[String,Any], interfaceName: String): Boolean ={
+    def checkInterface(interface: mutable.Map[String, Any], interfaceName: String): Boolean = {
 
       val allFieldsAndMethods = getAllMethodsAndFieldsAsMap(interface)
       val privateAccess = allFieldsAndMethods._2
-      if(privateAccess.nonEmpty){
+      if (privateAccess.nonEmpty) {
         throw new Error("Interface method/field.")
       }
 
       val fieldAndMethodList = getAllMethodsAndFieldsAsList(interface)
 
-      fieldAndMethodList.foreach( info => {
-        if( info._2 != None && info._2 != NoneCase()){
+      fieldAndMethodList.foreach(info => {
+        if (info._2 != None && info._2 != NoneCase()) {
           throw new Error(s"Interfaces must be completely abstract. ${info._1} is not abstract.")
         }
 
       })
       true
     }
+
     /** determines if an abstract class is valid or not */
-    def checkAbstractClass(abstractClass: mutable.Map[String,Any]) : Boolean = {
-      val publicAccess = abstractClass("public").asInstanceOf[mutable.Map[String,Any]]
-      val privateAccess = abstractClass("private").asInstanceOf[mutable.Map[String,Any]]
-      val protectedAccess = abstractClass("protected").asInstanceOf[mutable.Map[String,Any]]
+    def checkAbstractClass(abstractClass: mutable.Map[String, Any]): Boolean = {
+      val publicAccess = abstractClass("public").asInstanceOf[mutable.Map[String, Any]]
+      val privateAccess = abstractClass("private").asInstanceOf[mutable.Map[String, Any]]
+      val protectedAccess = abstractClass("protected").asInstanceOf[mutable.Map[String, Any]]
       // If the class contains a method with no expressions, return true. Else Return False
       publicAccess.values.exists(_ == NoneCase()) || privateAccess.values.exists(_ == NoneCase()) || protectedAccess.values.exists(_ == NoneCase())
     }
+
     /** Returns a tuple of a key array and value array of every field or method in the class */
-    def getAllMethodsAndFieldsAsList(currentClass: mutable.Map[String,Any]) : List[(String, Any)] = {
-      val publicAccess = currentClass("public").asInstanceOf[mutable.Map[String,Any]]
-      val privateAccess = currentClass("private").asInstanceOf[mutable.Map[String,Any]]
-      val protectedAccess = currentClass("protected").asInstanceOf[mutable.Map[String,Any]]
-      val keyList : List[String] = publicAccess.keys.toList ++ privateAccess.keys.toList ++ protectedAccess.keys.toList
-      val valueList : List[Any] = publicAccess.values.toList ++ privateAccess.values.toList ++ protectedAccess.values.toList
+    def getAllMethodsAndFieldsAsList(currentClass: mutable.Map[String, Any]): List[(String, Any)] = {
+      val publicAccess = currentClass("public").asInstanceOf[mutable.Map[String, Any]]
+      val privateAccess = currentClass("private").asInstanceOf[mutable.Map[String, Any]]
+      val protectedAccess = currentClass("protected").asInstanceOf[mutable.Map[String, Any]]
+      val keyList: List[String] = publicAccess.keys.toList ++ privateAccess.keys.toList ++ protectedAccess.keys.toList
+      val valueList: List[Any] = publicAccess.values.toList ++ privateAccess.values.toList ++ protectedAccess.values.toList
       //mutable.Map() ++ (keyList zip valueList)
       val a = keyList zip valueList
       a
     }
+
     /** returns all methods and fields of an object as a map */
-    def getAllMethodsAndFieldsAsMap(currentClass: mutable.Map[String,Any]) : (mutable.Map[String, Any], mutable.Map[String, Any], mutable.Map[String, Any]) = {
-      val publicAccess = currentClass("public").asInstanceOf[mutable.Map[String,Any]]
-      val privateAccess = currentClass("private").asInstanceOf[mutable.Map[String,Any]]
-      val protectedAccess = currentClass("protected").asInstanceOf[mutable.Map[String,Any]]
+    def getAllMethodsAndFieldsAsMap(currentClass: mutable.Map[String, Any]): (mutable.Map[String, Any], mutable.Map[String, Any], mutable.Map[String, Any]) = {
+      val publicAccess = currentClass("public").asInstanceOf[mutable.Map[String, Any]]
+      val privateAccess = currentClass("private").asInstanceOf[mutable.Map[String, Any]]
+      val protectedAccess = currentClass("protected").asInstanceOf[mutable.Map[String, Any]]
       //mutable.Map() ++ (keyList zip valueList)
       (publicAccess, privateAccess, protectedAccess)
     }
+
     /** builds a new object
      *
      * param className the variable name of the object's class
@@ -912,7 +955,7 @@ object SetTheoryDSL extends Program:
      *
      * returns nothing
      */
-    def constructor_helper(className: String, objectName: String, constructor: Constructor, fields: ArraySeq[SetExp]): mutable.Map[String,Any] = {
+    def constructor_helper(className: String, objectName: String, constructor: Constructor, fields: ArraySeq[SetExp]): mutable.Map[String, Any] = {
       // set isClass flag to true so that the results of any SetExp in the constructor are placed in the appropriate object
       isObject(0) = true
       isObject(1) = objectName
@@ -937,12 +980,13 @@ object SetTheoryDSL extends Program:
       // reset flag
       isObject(0) = false
       isObject(1) = ""
-      if(isClassDef(0)){
+      if (isClassDef(0)) {
         scope.remove(objectName)
         newObject.put("fields", fields)
       }
       newObject
     }
+
     /** concatenates the definitions of two objects */
     def getNewExpression(classDef: ClassDef, parentClassName: String): (Value, SetExp, SetExp) = {
       // get parent class and all it contains
@@ -988,6 +1032,7 @@ object SetTheoryDSL extends Program:
 
       (childName, newConstructor, newField)
     }
+
     def getNewExpression(classDef: AbstractClassDef, parentClassName: String): (Value, SetExp, SetExp) = {
       // get parent class and all it contains
 
@@ -1032,6 +1077,7 @@ object SetTheoryDSL extends Program:
 
       (childName, newConstructor, newField)
     }
+
     def getNewExpression(classDef: InterfaceDecl, parentClassName: String): (Value, SetExp, SetExp) = {
       // get parent class and all it contains
 
@@ -1076,36 +1122,42 @@ object SetTheoryDSL extends Program:
 
       (childName, newConstructor, newField)
     }
+
     /** returns a class or interface */
     def getClass(className: String): mutable.Map[String, Any] = {
-      if(classMap.contains(className)) {
+      if (classMap.contains(className)) {
         classMap(className)
-      }else{
+      } else {
         interfaceMap(className)
       }
     }
+
     /** returns an object within a scope */
     def getObject(scope: mutable.Map[String, Any], objectName: String): mutable.Map[String, Any] = {
       scope(objectName).asInstanceOf[mutable.Map[String, Any]]
     }
+
     /** prints a scope */
     def printScope(scopeName: String): Any = {
       println(s"The $scopeName scope:")
       println(scopeMap(scopeName))
     }
+
     /** prints all interfaces */
     def printInterfaces: Any = {
       println("Interfaces: ")
       println(interfaceMap)
     }
+
     /** prints all classes */
     def printClasses: Any = {
       println("Classes: ")
       println(classMap)
     }
+
     /** returns a scope */
     def getScope(scopeName: String): mutable.Map[String, Any] = {
-      if(isException(0).asInstanceOf[Boolean]){
+      if (isException(0).asInstanceOf[Boolean]) {
         return exceptionMap(scopeName)
       }
       scopeMap(scopeName)
@@ -1118,7 +1170,9 @@ object SetTheoryDSL extends Program:
   // Place your expressions here. View README.md for syntax documentation
   //Assign(Variable(Value("var")), Value(1)).eval
   //Value(1).map()
-  Expression(Add(Variable(Value("x")), Value(3))).eval
+
+  optimizeIF(IF(condition = 2 > 1, thenClause = Value("true"), elseClause = Value("false")))
+
   Value(1).printScope("default")
   Value(1).printClasses
   Value(1).printInterfaces

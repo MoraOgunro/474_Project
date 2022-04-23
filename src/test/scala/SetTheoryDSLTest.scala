@@ -1,7 +1,8 @@
 /*
   Mora Ogunro
 */
-import SetTheoryDSL.{SetExp, exceptionMap, relationshipMap}
+
+import SetTheoryDSL.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.BeforeAndAfter
@@ -13,63 +14,76 @@ import scala.collection.mutable
 class SetTheoryDSLTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
   behavior of "my set theory DSL"
 
-  "IF" should "Evaluate an IF statement" in {
-    IF(true,
-      thenClause = Assign(Variable(Value("a")), Value(1)),
-      elseClause = Assign(Variable(Value("a")), Value(2))
-    ).eval
+  "optimizeIF" should "simplify if statements" in {
+    optimizeIF(
+      IF(condition = 5 > 1,
+        thenClause = Value("true"),
+        elseClause = Value("false"))
+    ) shouldBe Value("true")
 
-    val scope = Value(1).getScope("default")
-    scope.contains("a") shouldBe(true)
-    val new_set = scope("a").asInstanceOf[mutable.HashSet[Any]]
-    new_set.contains(1) shouldBe(true)
+    optimizeIF(
+      IF(condition = 1 > 100,
+        thenClause = Value("true"),
+        elseClause = Value("false"))
+    ) shouldBe Value("false")
+  }
+  "optimizeUnion" should "return Value(empty set) if one of the sets is empty" in {
+
+    scopeMap("default").put("set1", mutable.HashSet.empty)
+    scopeMap("default").put("set2", mutable.HashSet(1, 2, 3))
+
+    optimizeUnion(
+      Union(
+        Variable(Value("set1")),
+        Variable(Value("set2"))
+      )
+    ) shouldBe Value(mutable.HashSet.empty)
+  }
+
+  "optimizeSetDifference" should "return Value(set) if one of the sets is empty" in {
+    scopeMap("default").put("set1", mutable.HashSet.empty)
+    scopeMap("default").put("set2", mutable.HashSet(1, 2, 3))
+
+    optimizeSetDifference(
+      SetDifference(
+        Variable(Value("set1")),
+        Variable(Value("set2"))
+      )
+    ) shouldBe Value(mutable.HashSet(1, 2, 3))
+  }
+
+  "optimize" should "run the appropriate optimizations on a set expression" in {
+    scopeMap("default").put("set1", mutable.HashSet.empty)
+    scopeMap("default").put("set2", mutable.HashSet(1, 2, 3))
+
+    optimize(
+      SetDifference(
+        Variable(Value("set1")),
+        Variable(Value("set2"))
+      )
+    )
+  }
+
+  "Expression" should "optimize and return a partial expression if one of the sets in Union does not exist" in {
+    scopeMap("default").put("set2", mutable.HashSet(1, 2, 3))
+
+    Expression(
+      Union(
+        Variable(Value("set1")),
+        Variable(Value("set2"))
+      )
+    ).eval shouldBe Union(Value(Variable(Value("set1"))), Value(mutable.HashSet(1, 2, 3)))
 
   }
-  "ExceptionClassDef" should "Define an exception" in {
-    ExceptionClassDef("myException").eval
-    exceptionMap.contains("myException") shouldBe(true)
-    val exception = exceptionMap("myException")
-    exception.contains("Reason") shouldBe(true)
-  }
+  it should "optimize and return a partial expression if one of the sets in SetDifference does not exist" in {
+    scopeMap("default").put("set2", mutable.HashSet(1, 2, 3))
 
-  "CatchException" should "Evaluate expressions until an exception is discovered." in {
-    ExceptionClassDef("myException").eval
-    CatchException("myException",
-      Value(1),
-      AbstractClassDef(Value("myClass"),
-        field = Field(Value(("f", "public"))),
-        constructor = Constructor(Method("initialMethod", NoneCase(), "private"))
-      ),
-      ThrowException("myException","I want to throw an exception!"),
-      Catch(
-        Value("In Catch"),
-        Variable(Value("storageOfException")),
-        Assign(Variable(Value("var")), Variable(Value("Reason")))
-      ),
-      Value(5)
-    ).eval
-  }
-  "ThrowException" should "Throw an exception and set the reason within an exception class" in {
-    ExceptionClassDef("myException").eval
-    ThrowException("myException", "TEST").eval
-    exceptionMap.contains("myException") shouldBe(true)
-    val exception = exceptionMap("myException")
-    exception("Reason") shouldBe("TEST")
-  }
-  "Catch" should "Catch an exception by running the expressions within itself" in {
-    ExceptionClassDef("myException").eval
-    exceptionMap.contains("myException") shouldBe(true)
-    val exception = exceptionMap("myException")
-    ThrowException("myException", "TEST").eval
-
-    Catch(
-      Value("In Catch"),
-      Variable(Value("storageOfException")),
-      Assign(Variable(Value("var")), Variable(Value("Reason")))
-    ).eval
-
-    exception.contains("var") shouldBe(true)
-    exception("var") shouldBe(mutable.HashSet("TEST"))
+    Expression(
+      SetDifference(
+        Variable(Value("set1")),
+        Variable(Value("set2"))
+      )
+    ).eval shouldBe SetDifference(Value(Variable(Value("set1"))), Value(mutable.HashSet(1, 2, 3)))
 
   }
 }

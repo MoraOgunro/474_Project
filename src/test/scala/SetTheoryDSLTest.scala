@@ -14,6 +14,10 @@ import scala.collection.mutable
 class SetTheoryDSLTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
   behavior of "my set theory DSL"
 
+  after{
+    scopeMap("default").clear()
+  }
+
   "optimizeIF" should "simplify if statements" in {
     optimizeIF(
       IF(condition = 5 > 1,

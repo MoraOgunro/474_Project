@@ -14,7 +14,7 @@ import scala.collection.mutable
 class SetTheoryDSLTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
   behavior of "my set theory DSL"
 
-  after{
+  after {
     scopeMap("default").clear()
   }
 
@@ -88,6 +88,20 @@ class SetTheoryDSLTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
         Variable(Value("set2"))
       )
     ).eval shouldBe SetDifference(Value(Variable(Value("set1"))), Value(mutable.HashSet(1, 2, 3)))
+
+  }
+
+  "map" should "perform a function on each expression" in {
+
+    scopeMap("default").put("set1", mutable.HashSet.empty)
+    scopeMap("default").put("set2", mutable.HashSet(1, 2, 3))
+    scopeMap("default").put("set3", mutable.HashSet.empty)
+    scopeMap("default").put("set4", mutable.HashSet(5))
+
+    ExpressionList(
+      Union(Variable(Value("set1")), Variable(Value("set2"))),
+      Union(Variable(Value("set3")), Variable(Value("set4")))
+    ).map(optimizeUnion) shouldBe ArraySeq(Value(mutable.HashSet()), Value(mutable.HashSet()))
 
   }
 }

@@ -18,10 +18,10 @@ final case class VariableException() extends Exception()
 class Program() {
   def checkVariable(variable: Variable): Boolean = {
     val name = variable.name.eval
-    if(scopeMap(currentScopeName(0)).contains(name.asInstanceOf[String])){
-      return true
-    }else{
-      return false
+    if (scopeMap(currentScopeName(0)).contains(name.asInstanceOf[String])) {
+      true
+    } else {
+      false
     }
   }
 
@@ -33,12 +33,15 @@ class Program() {
       case _ => expression
     }
   }
+
   /**
    *
-   * @param expression
+   * @param exp the IF expression to be optimized
    * @return
    */
-  def optimizeIF(expression: IF): SetExp = {
+  def optimizeIF(exp: SetExp): SetExp = {
+    val expression = exp.asInstanceOf[IF]
+
     val condition = expression.condition
     val thenClause = expression.thenClause
     val elseClause = expression.elseClause
@@ -59,74 +62,84 @@ class Program() {
     }
     expression
   }
+
   /**
-   * Returns an empty set if one of the original sets is empty
+   * Returns an empty se if one of the original sets is empty
    *
-   * @param expression, the Union expression
+   * @param exp , the Union expression
    * @return an empty set or the original expression
    */
-  def optimizeUnion(expression: Union): SetExp = {
-
-    val set1 = if(checkVariable(expression.set1.asInstanceOf[Variable])){
-      expression.set1.eval.asInstanceOf[(String,Any)]._2
-    }else{
+  def optimizeUnion(exp: SetExp): SetExp = {
+    val expression = exp.asInstanceOf[Union]
+    val set1 = if (checkVariable(expression.set1.asInstanceOf[Variable])) {
+      expression.set1.eval.asInstanceOf[(String, Any)]._2
+    } else {
       expression.set1.asInstanceOf[Variable]
     }
 
-    val set2 = if(checkVariable(expression.set2.asInstanceOf[Variable])){
-      expression.set2.eval.asInstanceOf[(String,Any)]._2
-    }else{
+    val set2 = if (checkVariable(expression.set2.asInstanceOf[Variable])) {
+      expression.set2.eval.asInstanceOf[(String, Any)]._2
+    } else {
       expression.set2.asInstanceOf[Variable]
     }
 
-    if(set1.equals(mutable.HashSet.empty) | set2.equals(mutable.HashSet.empty) ){
-      return Value(mutable.HashSet.empty);
+    if (set1.equals(mutable.HashSet.empty) | set2.equals(mutable.HashSet.empty)) {
+      return Value(mutable.HashSet.empty)
     }
 
 
-    return Union(Value(set1),Value(set2))
+    Union(Value(set1), Value(set2))
   }
+
   /**
    *
-   * @param expression
+   * @param exp the
    * @return
    */
-  def optimizeSetDifference(expression: SetDifference): SetExp = {
-    val set1 = if(checkVariable(expression.set1.asInstanceOf[Variable])){
-      expression.set1.eval.asInstanceOf[(String,Any)]._2
-    }else{
+  def optimizeSetDifference(exp: SetExp): SetExp = {
+    val expression = exp.asInstanceOf[SetDifference]
+
+    val set1 = if (checkVariable(expression.set1.asInstanceOf[Variable])) {
+      expression.set1.eval.asInstanceOf[(String, Any)]._2
+    } else {
       expression.set1.asInstanceOf[Variable]
     }
 
-    val set2 = if(checkVariable(expression.set2.asInstanceOf[Variable])){
-      expression.set2.eval.asInstanceOf[(String,Any)]._2
-    }else{
+    val set2 = if (checkVariable(expression.set2.asInstanceOf[Variable])) {
+      expression.set2.eval.asInstanceOf[(String, Any)]._2
+    } else {
       expression.set2.asInstanceOf[Variable]
     }
 
-    if(set1.equals(mutable.HashSet())){
-      return Value(set2);
-    }else if(set2.equals(mutable.HashSet())){
+    if (set1.equals(mutable.HashSet())) {
+      return Value(set2)
+    } else if (set2.equals(mutable.HashSet())) {
       return Value(set1)
     }
 
-    return SetDifference(Value(set1),Value(set2))
+    SetDifference(Value(set1), Value(set2))
   }
 
   /**
+   * The input must be an ExpressionList
    *
    * @param f the function to be applied
    * @return an ArraySeq of the mapped expressions
    */
   def map(f: SetExp => SetExp): ArraySeq[SetExp] = {
-    val expression = this
-    val mappedList: ArraySeq[SetExp] = ArraySeq.empty;
-    val expressionList: ArraySeq[SetExp] = expression.asInstanceOf[ArraySeq[SetExp]]
+    val expression = this.asInstanceOf[ExpressionList].expressions
+
+
+    val mappedList: ArraySeq[SetExp] = ArraySeq.empty
+    val mappedListContainer: Array[ArraySeq[SetExp]] = Array(mappedList)
+    val expressionList: Seq[SetTheoryDSL.SetExp] = expression
+
     expressionList.foreach(elem => {
-      mappedList.appended(f(elem))
+      val r = f(elem)
+      mappedListContainer(0) = mappedListContainer(0) :+ r
     })
 
-    mappedList
+    mappedListContainer(0)
   }
 }
 
@@ -160,6 +173,7 @@ object SetTheoryDSL extends Program :
 
 
   enum SetExp extends Program :
+    case ExpressionList(expressions: SetExp*)
     case Expression(input: SetExp)
     case Value(input: BasicType)
     case Variable(name: SetExp)
@@ -191,18 +205,21 @@ object SetTheoryDSL extends Program :
     case Add(x: SetExp, y: SetExp)
     case Multiply(x: SetExp, y: SetExp)
 
+
     def eval: BasicType | Program | SetExp =
       this match {
+        case ExpressionList(expressions) =>
+          expressions
+
         /**
          * returns partially evaluated program if the expression cannot be fully evaluated
          */
-        case Expression(input) => {
-          try{
+        case Expression(input) =>
+          try {
             input.eval
-          }catch {
+          } catch {
             case e: VariableException => optimize(input)
           }
-        }
 
         /** Returns the value that was passed into it
          *
@@ -374,9 +391,10 @@ object SetTheoryDSL extends Program :
 
           /** retrieve the two sets from their variable bindings */
           val sets = (set1.eval.asInstanceOf[(String, BasicType)]._2, set2.eval.asInstanceOf[(String, BasicType)]._2)
-          if(sets._1 == None | sets._2 == None){
+          if (sets._1 == None | sets._2 == None) {
             throw new VariableException
           }
+
           /** set1 and set2 must be recognized as type Set */
           sets._1.asInstanceOf[mutable.Set[BasicType]] union sets._2.asInstanceOf[mutable.Set[BasicType]]
 
@@ -408,9 +426,10 @@ object SetTheoryDSL extends Program :
           val f = set1.eval.asInstanceOf[(String, BasicType)]._2
           val s = set2.eval.asInstanceOf[(String, BasicType)]._2
 
-          if(f == None | s == None){
+          if (f == None | s == None) {
             throw new VariableException
           }
+
           /** set1 and set2 must be recognized as type Set */
           f.asInstanceOf[mutable.Set[BasicType]] diff s.asInstanceOf[mutable.Set[BasicType]]
 
@@ -742,15 +761,14 @@ object SetTheoryDSL extends Program :
           isException(0) = false
           isException(1) = ""
 
-        case GreaterThan(a, b) => {
+        case GreaterThan(a, b) =>
           val resultA = a.eval.asInstanceOf[Int]
           val resultB = b.eval.asInstanceOf[Int]
           if (resultA > resultB) {
-            return true
+            true
           } else {
-            return false
+            false
           }
-        }
         case Add(x, y) =>
           x.eval.asInstanceOf[Int] + y.eval.asInstanceOf[Int]
         case Multiply(x, y) => x.eval.asInstanceOf[Int] * y.eval.asInstanceOf[Int]
@@ -1222,10 +1240,6 @@ object SetTheoryDSL extends Program :
   println("***Welcome to my Set Theory DSL!***")
   println("***Please insert your expressions in the main function***\n")
   // Place your expressions here. View README.md for syntax documentation
-  //Assign(Variable(Value("var")), Value(1)).eval
-  //Value(1).map()
-
-  println()
 
   Value(1).printScope("default")
   Value(1).printClasses

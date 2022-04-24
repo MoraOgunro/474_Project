@@ -23,6 +23,102 @@ Scope("default", SetExp)
 ```
 See the Syntax for Scope for a more detailed example.
 
+**optimize(expression: SetExp)**
+
+optimize runs optimizeIF, optimizeUnion, optimizeSetDifference on a given expression.
+
+**map(f: SetExp => SetExp)**
+
+Performs the given function on a list of expressions.
+
+The list of expressions must be wrapped in ExpressionList().
+
+```
+ExpressionList(
+  Union(Variable(Value("set1")), Variable(Value("set2"))),
+  Union(Variable(Value("set3")), Variable(Value("set4")))
+).map(optimizeUnion)
+```
+
+**ExpressionList(expressions: SetExp)**
+
+The list wrapper that is needed to pass more than one expression into map().
+
+```
+ExpressionList(
+    SetDifference(Variable(Value("set1")), Variable(Value("set2"))),
+    Union(Variable(Value("set1")), Variable(Value("set2"))),
+    Union(Variable(Value("set3")), Variable(Value("set4")))
+).map(optimize)
+```
+
+**optimizeIF(exp: SetExp)**
+
+Optimizes an IF expression by reducing it to its THEN or ELSE clause
+
+```
+optimizeIF(
+  IF(
+    condition = 5 > 1,
+    thenClause = Value("true"),
+    elseClause = Value("false")
+  )
+)
+
+Without evaluating the clauses, optimizeIF reduces the expression to:
+
+Value("true")
+
+```
+
+**optimizeUnion(exp: SetExp)**
+
+optimizeUnion will look for empty sets in a Union expression and reduce to an empty set. Assume set1 is empty in the following example.
+
+```
+optimizeUnion(
+  Union(
+    Variable(Value("set1")),
+    Variable(Value("set2"))
+  )
+)
+    
+reduces to:
+
+Value(mutable.HashSet.empty)
+```
+
+**optimizeSetDifference(exp: SetExp)**
+
+optimizeSetDifference detects empty sets in a SetDifference expression and reduces it to the value of the non-empty set if there is one. Assume set1 is empty.
+
+```
+let set2 = HashSet(1,2,3)
+
+optimizeSetDifference(
+  SetDifference(
+    Variable(Value("set1")),
+    Variable(Value("set2"))
+  )
+)
+
+reduces to:
+
+Value(HashSet(1,2,3))
+```
+
+**Expression(input: SetExp)**
+
+Calls optimize() on a given expression.
+```
+Expression(
+  Union(
+    Variable(Value("set1")),
+    Variable(Value("set2"))
+  )
+).eval
+```
+
 **IF(condition: Any, thenClause: SetExp, elseClause: SetExp = NoneCase())**
 
 *elseClause : SetExp (optional)

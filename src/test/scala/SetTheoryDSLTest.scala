@@ -65,7 +65,7 @@ class SetTheoryDSLTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
         Variable(Value("set1")),
         Variable(Value("set2"))
       )
-    )
+    ) shouldBe Value(mutable.HashSet(1, 2, 3))
   }
 
   "Expression" should "optimize and return a partial expression if one of the sets in Union does not exist" in {

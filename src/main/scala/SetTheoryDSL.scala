@@ -25,6 +25,11 @@ class Program() {
     }
   }
 
+  /**
+   * 
+   * @param expression the expression to optimize
+   * @return the partial expression
+   */
   def optimize(expression: SetExp): SetExp = {
     expression match {
       case _: IF => optimizeIF(expression.asInstanceOf[IF])
